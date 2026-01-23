@@ -16,7 +16,7 @@ pub struct DeviceItem {
     #[serde(rename = "Id")]
     pub id: String,
     #[serde(rename = "LastUserId")]
-    pub last_user_id: String,
+    pub last_userid: String,
     #[serde(rename = "LastUserName")]
     pub last_user_name: String,
     #[serde(rename = "Name")]
@@ -78,13 +78,13 @@ pub async fn get_devices(
     let devices: Vec<DeviceItem> = tokens
         .into_iter()
         .map(|token| DeviceItem {
-            id: token.device_id.clone(),
-            last_user_id: token.user_id.clone(),
+            id: token.deviceid.clone().unwrap_or_default(),
+            last_userid: token.userid.clone(),
             last_user_name: user.username.clone(),
-            name: token.device_name.clone(),
-            app_name: token.app_name.clone(),
-            app_version: token.app_version.clone(),
-            date_last_activity: token.date_created,
+            name: token.devicename.clone().unwrap_or_default(),
+            app_name: token.applicationname.clone().unwrap_or_default(),
+            app_version: token.applicationversion.clone().unwrap_or_default(),
+            date_last_activity: token.created.unwrap_or_else(|| chrono::Utc::now()),
             capabilities: DeviceCapabilities {
                 playable_media_types: vec![],
                 supported_commands: vec![],
@@ -117,7 +117,7 @@ pub async fn delete_device(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     for token in tokens {
-        if &token.device_id == device_id {
+        if token.deviceid.as_deref() == Some(device_id) {
             state.db.delete_token(&token.token).await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             return Ok(StatusCode::NO_CONTENT);
@@ -144,15 +144,15 @@ pub async fn get_device_info(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     for token in tokens {
-        if &token.device_id == device_id {
+        if token.deviceid.as_deref() == Some(device_id) {
             return Ok(Json(DeviceItem {
-                id: token.device_id.clone(),
-                last_user_id: token.user_id.clone(),
+                id: token.deviceid.clone().unwrap_or_default(),
+                last_userid: token.userid.clone(),
                 last_user_name: user.username.clone(),
-                name: token.device_name.clone(),
-                app_name: token.app_name.clone(),
-                app_version: token.app_version.clone(),
-                date_last_activity: token.date_created,
+                name: token.devicename.clone().unwrap_or_default(),
+                app_name: token.applicationname.clone().unwrap_or_default(),
+                app_version: token.applicationversion.clone().unwrap_or_default(),
+                date_last_activity: token.created.unwrap_or_else(|| chrono::Utc::now()),
                 capabilities: DeviceCapabilities {
                     playable_media_types: vec![],
                     supported_commands: vec![],
@@ -180,10 +180,10 @@ pub async fn get_device_options(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     for token in tokens {
-        if &token.device_id == device_id {
+        if token.deviceid.as_deref() == Some(device_id) {
             return Ok(Json(DeviceOptions {
-                device_id: token.device_id.clone(),
-                custom_name: token.device_name.clone(),
+                device_id: token.deviceid.clone().unwrap_or_default(),
+                custom_name: token.devicename.clone().unwrap_or_default(),
                 disable_auto_login: false,
             }));
         }

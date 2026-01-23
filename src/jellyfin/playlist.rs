@@ -74,10 +74,9 @@ pub async fn create_playlist(
     
     let playlist = DbPlaylist {
         id: playlist_id.clone(),
-        user_id: playlist_user_id,
+        userid: playlist_user_id,
         name,
-        date_created: Utc::now(),
-        date_modified: Utc::now(),
+        timestamp: Some(Utc::now()),
     };
     
     state.db.create_playlist(&playlist).await
@@ -102,7 +101,7 @@ pub async fn get_playlist(
     let playlist = state.db.get_playlist(&playlist_id).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
     
-    if playlist.user_id != user_id {
+    if playlist.userid != user_id {
         return Err(StatusCode::FORBIDDEN);
     }
     
@@ -126,7 +125,7 @@ pub async fn get_playlist_items(
     let playlist = state.db.get_playlist(&playlist_id).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
     
-    if playlist.user_id != user_id {
+    if playlist.userid != user_id {
         return Err(StatusCode::FORBIDDEN);
     }
     
@@ -179,7 +178,7 @@ pub async fn add_playlist_items(
     let playlist = state.db.get_playlist(&playlist_id).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
     
-    if playlist.user_id != user_id {
+    if playlist.userid != user_id {
         return Err(StatusCode::FORBIDDEN);
     }
     
@@ -209,7 +208,7 @@ pub async fn delete_playlist_items(
     let playlist = state.db.get_playlist(&playlist_id).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
     
-    if playlist.user_id != user_id {
+    if playlist.userid != user_id {
         return Err(StatusCode::FORBIDDEN);
     }
     

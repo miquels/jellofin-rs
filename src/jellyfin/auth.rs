@@ -25,6 +25,9 @@ pub async fn authenticate_by_name(
                     id: uuid::Uuid::new_v4().to_string(),
                     username: username.to_string(),
                     password: String::new(),
+                    created: Some(chrono::Utc::now().to_rfc3339()),
+                    lastlogin: None,
+                    lastused: None,
                 };
                 state.db.upsert_user(&new_user).await
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -37,12 +40,14 @@ pub async fn authenticate_by_name(
     
     let token = AccessToken {
         token: uuid::Uuid::new_v4().to_string(),
-        user_id: user.id.clone(),
-        device_id: String::new(),
-        device_name: String::new(),
-        app_name: String::new(),
-        app_version: String::new(),
-        date_created: chrono::Utc::now(),
+        userid: user.id.clone(),
+        deviceid: Some(String::new()),
+        devicename: Some(String::new()),
+        applicationname: Some(String::new()),
+        applicationversion: Some(String::new()),
+        remoteaddress: None,
+        created: Some(chrono::Utc::now()),
+        lastused: None,
     };
     
     state.db.upsert_token(&token).await
@@ -77,7 +82,7 @@ pub async fn auth_middleware(
     
     if let Some(token_str) = token {
         if let Ok(token) = state.db.get_token(&token_str).await {
-            req.extensions_mut().insert(token.user_id.clone());
+            req.extensions_mut().insert(token.userid.clone());
         }
     }
     

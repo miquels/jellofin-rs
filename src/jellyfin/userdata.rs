@@ -29,14 +29,14 @@ pub async fn get_resume_items(
     for collection in &collections {
         for movie in collection.movies.values() {
             if let Ok(user_data) = state.db.get_user_data(&user_id, &movie.id).await {
-                if let Some(pos) = user_data.playback_position_ticks {
-                    if pos > 0 && !user_data.played {
+                if let Some(pos) = user_data.position {
+                    if pos > 0 && user_data.played != Some(true) {
                         let mut dto = convert_movie_to_dto(movie, &collection.id);
                         dto.user_data = Some(UserItemData {
-                            played: user_data.played,
-                            is_favorite: user_data.is_favorite,
+                            played: user_data.played.unwrap_or(false),
+                            is_favorite: user_data.favorite.unwrap_or(false),
                             playback_position_ticks: Some(pos),
-                            play_count: user_data.play_count,
+                            play_count: user_data.playcount,
                         });
                         resume_items.push((pos, dto));
                     }
@@ -48,14 +48,14 @@ pub async fn get_resume_items(
             for season in show.seasons.values() {
                 for episode in season.episodes.values() {
                     if let Ok(user_data) = state.db.get_user_data(&user_id, &episode.id).await {
-                        if let Some(pos) = user_data.playback_position_ticks {
-                            if pos > 0 && !user_data.played {
+                        if let Some(pos) = user_data.position {
+                            if pos > 0 && user_data.played != Some(true) {
                                 let mut dto = convert_episode_to_dto(episode, &season.id, &show.id, &collection.id);
                                 dto.user_data = Some(UserItemData {
-                                    played: user_data.played,
-                                    is_favorite: user_data.is_favorite,
+                                    played: user_data.played.unwrap_or(false),
+                                    is_favorite: user_data.favorite.unwrap_or(false),
                                     playback_position_ticks: Some(pos),
-                                    play_count: user_data.play_count,
+                                    play_count: user_data.playcount,
                                 });
                                 resume_items.push((pos, dto));
                             }
@@ -85,26 +85,29 @@ pub async fn mark_played(
     
     let mut user_data = state.db.get_user_data(&user_id, &item_id).await
         .unwrap_or_else(|_| crate::db::UserData {
-            user_id: user_id.clone(),
-            item_id: item_id.clone(),
-            played: false,
-            is_favorite: false,
-            playback_position_ticks: None,
-            play_count: None,
+            userid: user_id.clone(),
+            itemid: item_id.clone(),
+            position: None,
+            playedpercentage: None,
+            played: None,
+            playcount: None,
+            favorite: None,
+            timestamp: Some(chrono::Utc::now()),
         });
     
-    user_data.played = true;
-    user_data.play_count = Some(user_data.play_count.unwrap_or(0) + 1);
-    user_data.playback_position_ticks = None;
+    user_data.played = Some(true);
+    user_data.playcount = Some(user_data.playcount.unwrap_or(0) + 1);
+    user_data.position = None;
+    user_data.timestamp = Some(chrono::Utc::now());
     
     state.db.upsert_user_data(&user_data).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     Ok(Json(UserItemData {
-        played: user_data.played,
-        is_favorite: user_data.is_favorite,
-        playback_position_ticks: user_data.playback_position_ticks,
-        play_count: user_data.play_count,
+        played: user_data.played.unwrap_or(false),
+        is_favorite: user_data.favorite.unwrap_or(false),
+        playback_position_ticks: user_data.position,
+        play_count: user_data.playcount,
     }))
 }
 
@@ -117,25 +120,28 @@ pub async fn mark_unplayed(
     
     let mut user_data = state.db.get_user_data(&user_id, &item_id).await
         .unwrap_or_else(|_| crate::db::UserData {
-            user_id: user_id.clone(),
-            item_id: item_id.clone(),
-            played: false,
-            is_favorite: false,
-            playback_position_ticks: None,
-            play_count: None,
+            userid: user_id.clone(),
+            itemid: item_id.clone(),
+            position: None,
+            playedpercentage: None,
+            played: None,
+            playcount: None,
+            favorite: None,
+            timestamp: Some(chrono::Utc::now()),
         });
     
-    user_data.played = false;
-    user_data.playback_position_ticks = None;
+    user_data.played = Some(false);
+    user_data.position = None;
+    user_data.timestamp = Some(chrono::Utc::now());
     
     state.db.upsert_user_data(&user_data).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     Ok(Json(UserItemData {
-        played: user_data.played,
-        is_favorite: user_data.is_favorite,
-        playback_position_ticks: user_data.playback_position_ticks,
-        play_count: user_data.play_count,
+        played: user_data.played.unwrap_or(false),
+        is_favorite: user_data.favorite.unwrap_or(false),
+        playback_position_ticks: user_data.position,
+        play_count: user_data.playcount,
     }))
 }
 
@@ -148,24 +154,27 @@ pub async fn mark_favorite(
     
     let mut user_data = state.db.get_user_data(&user_id, &item_id).await
         .unwrap_or_else(|_| crate::db::UserData {
-            user_id: user_id.clone(),
-            item_id: item_id.clone(),
-            played: false,
-            is_favorite: false,
-            playback_position_ticks: None,
-            play_count: None,
+            userid: user_id.clone(),
+            itemid: item_id.clone(),
+            position: None,
+            playedpercentage: None,
+            played: None,
+            playcount: None,
+            favorite: None,
+            timestamp: Some(chrono::Utc::now()),
         });
     
-    user_data.is_favorite = true;
+    user_data.favorite = Some(true);
+    user_data.timestamp = Some(chrono::Utc::now());
     
     state.db.upsert_user_data(&user_data).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     Ok(Json(UserItemData {
-        played: user_data.played,
-        is_favorite: user_data.is_favorite,
-        playback_position_ticks: user_data.playback_position_ticks,
-        play_count: user_data.play_count,
+        played: user_data.played.unwrap_or(false),
+        is_favorite: user_data.favorite.unwrap_or(false),
+        playback_position_ticks: user_data.position,
+        play_count: user_data.playcount,
     }))
 }
 
@@ -178,24 +187,27 @@ pub async fn unmark_favorite(
     
     let mut user_data = state.db.get_user_data(&user_id, &item_id).await
         .unwrap_or_else(|_| crate::db::UserData {
-            user_id: user_id.clone(),
-            item_id: item_id.clone(),
-            played: false,
-            is_favorite: false,
-            playback_position_ticks: None,
-            play_count: None,
+            userid: user_id.clone(),
+            itemid: item_id.clone(),
+            position: None,
+            playedpercentage: None,
+            played: None,
+            playcount: None,
+            favorite: None,
+            timestamp: Some(chrono::Utc::now()),
         });
     
-    user_data.is_favorite = false;
+    user_data.favorite = Some(false);
+    user_data.timestamp = Some(chrono::Utc::now());
     
     state.db.upsert_user_data(&user_data).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     Ok(Json(UserItemData {
-        played: user_data.played,
-        is_favorite: user_data.is_favorite,
-        playback_position_ticks: user_data.playback_position_ticks,
-        play_count: user_data.play_count,
+        played: user_data.played.unwrap_or(false),
+        is_favorite: user_data.favorite.unwrap_or(false),
+        playback_position_ticks: user_data.position,
+        play_count: user_data.playcount,
     }))
 }
 
@@ -213,15 +225,18 @@ pub async fn update_playback_position(
     
     let mut user_data = state.db.get_user_data(&user_id, &item_id).await
         .unwrap_or_else(|_| crate::db::UserData {
-            user_id: user_id.clone(),
-            item_id: item_id.clone(),
-            played: false,
-            is_favorite: false,
-            playback_position_ticks: None,
-            play_count: None,
+            userid: user_id.clone(),
+            itemid: item_id.clone(),
+            position: None,
+            playedpercentage: None,
+            played: None,
+            playcount: None,
+            favorite: None,
+            timestamp: Some(chrono::Utc::now()),
         });
     
-    user_data.playback_position_ticks = position_ticks;
+    user_data.position = position_ticks;
+    user_data.timestamp = Some(chrono::Utc::now());
     
     state.db.upsert_user_data(&user_data).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -253,7 +268,7 @@ pub async fn get_next_up(
             for season in show.seasons.values() {
                 for episode in season.episodes.values() {
                     if let Ok(user_data) = state.db.get_user_data(&user_id, &episode.id).await {
-                        if user_data.played {
+                        if user_data.played == Some(true) {
                             if episode.season_number > last_watched_season || 
                                (episode.season_number == last_watched_season && episode.episode_number > last_watched_episode) {
                                 last_watched_season = episode.season_number;

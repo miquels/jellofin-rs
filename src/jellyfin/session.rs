@@ -92,13 +92,14 @@ pub async fn get_sessions(
     // Keep most recent token per device ID only
     let mut unique_tokens = HashMap::new();
     for token in tokens {
-        let device_id = token.device_id.clone();
-        if let Some(&existing) = unique_tokens.get(&device_id) {
-            if token.date_created > existing {
-                unique_tokens.insert(device_id, token.date_created);
+        if let Some(device_id) = &token.deviceid {
+            if let Some(&existing) = unique_tokens.get(device_id) {
+                if token.created.unwrap_or_else(|| chrono::Utc::now()) > existing {
+                    unique_tokens.insert(device_id.clone(), token.created.unwrap_or_else(|| chrono::Utc::now()));
+                }
+            } else {
+                unique_tokens.insert(device_id.clone(), token.created.unwrap_or_else(|| chrono::Utc::now()));
             }
-        } else {
-            unique_tokens.insert(device_id, token.date_created);
         }
     }
     
@@ -108,18 +109,19 @@ pub async fn get_sessions(
     
     let mut sessions = Vec::new();
     for token in all_tokens {
-        if let Some(&last_activity) = unique_tokens.get(&token.device_id) {
-            if token.date_created == last_activity {
-                sessions.push(SessionInfo {
+        if let Some(device_id) = &token.deviceid {
+            if let Some(&last_activity) = unique_tokens.get(device_id) {
+                if token.created.unwrap_or_else(|| chrono::Utc::now()) == last_activity {
+                    sessions.push(SessionInfo {
                     id: SESSION_ID.to_string(),
-                    user_id: token.user_id.clone(),
+                    user_id: token.userid.clone(),
                     user_name: user.username.clone(),
-                    last_activity_date: token.date_created,
+                    last_activity_date: token.created.unwrap_or_else(|| chrono::Utc::now()),
                     remote_end_point: String::new(),
-                    device_name: token.device_name.clone(),
-                    device_id: token.device_id.clone(),
-                    client: token.app_name.clone(),
-                    application_version: token.app_version.clone(),
+                    device_name: token.devicename.clone().unwrap_or_default(),
+                    device_id: token.deviceid.clone().unwrap_or_default(),
+                    client: token.applicationname.clone().unwrap_or_default(),
+                    application_version: token.applicationversion.clone().unwrap_or_default(),
                     is_active: true,
                     supports_media_control: false,
                     supports_remote_control: false,
@@ -141,6 +143,7 @@ pub async fn get_sessions(
                     supported_commands: vec![],
                     playable_media_types: vec![],
                 });
+                }
             }
         }
     }

@@ -6,17 +6,22 @@ pub struct User {
     pub id: String,
     pub username: String,
     pub password: String,
+    pub created: Option<String>,
+    pub lastlogin: Option<String>,
+    pub lastused: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct AccessToken {
     pub token: String,
-    pub user_id: String,
-    pub device_id: String,
-    pub device_name: String,
-    pub app_name: String,
-    pub app_version: String,
-    pub date_created: DateTime<Utc>,
+    pub userid: String,
+    pub deviceid: Option<String>,
+    pub devicename: Option<String>,
+    pub applicationname: Option<String>,
+    pub applicationversion: Option<String>,
+    pub remoteaddress: Option<String>,
+    pub created: Option<DateTime<Utc>>,
+    pub lastused: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -40,28 +45,30 @@ pub struct Item {
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct UserData {
-    pub user_id: String,
-    pub item_id: String,
-    pub played: bool,
-    pub is_favorite: bool,
-    pub playback_position_ticks: Option<i64>,
-    pub play_count: Option<i32>,
+    pub userid: String,
+    pub itemid: String,
+    pub position: Option<i64>,
+    pub playedpercentage: Option<i32>,
+    pub played: Option<bool>,
+    pub playcount: Option<i32>,
+    pub favorite: Option<bool>,
+    pub timestamp: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Playlist {
     pub id: String,
-    pub user_id: String,
     pub name: String,
-    pub date_created: DateTime<Utc>,
-    pub date_modified: DateTime<Utc>,
+    pub userid: String,
+    pub timestamp: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct PlaylistItem {
-    pub playlist_id: String,
-    pub item_id: String,
-    pub sort_order: i32,
+    pub playlistid: String,
+    pub itemid: String,
+    pub itemorder: i32,
+    pub timestamp: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, thiserror::Error)]
