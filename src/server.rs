@@ -98,7 +98,11 @@ pub fn build_router(state: AppState) -> Router {
         .route("/Devices/Options", get(crate::jellyfin::get_device_options))
         .route("/Sessions", get(crate::jellyfin::get_sessions))
         .route("/Sessions/Capabilities", axum::routing::post(crate::jellyfin::post_session_capabilities))
-        .route("/Sessions/Capabilities/Full", axum::routing::post(crate::jellyfin::post_session_capabilities_full));
+        .route("/Sessions/Capabilities/Full", axum::routing::post(crate::jellyfin::post_session_capabilities_full))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            crate::jellyfin::auth_middleware,
+        ));
     
     let mut router = Router::new()
         .route("/health", get(health_handler))
