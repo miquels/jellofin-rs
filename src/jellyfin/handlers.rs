@@ -113,8 +113,10 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
                 parent_index_number: None,
                 child_count: Some(c.item_count() as i32),
                 image_tags: HashMap::new(),
+                backdrop_image_tags: None,
                 user_data: None,
                 media_sources: None,
+                provider_ids: None,
             }
         })
         .collect();
@@ -140,8 +142,10 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         parent_index_number: None,
         child_count: Some(0),
         image_tags: HashMap::new(),
+        backdrop_image_tags: None,
         user_data: None,
         media_sources: None,
+        provider_ids: None,
     });
     
     // Add Playlists virtual collection
@@ -165,8 +169,10 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         parent_index_number: None,
         child_count: Some(0),
         image_tags: HashMap::new(),
+        backdrop_image_tags: None,
         user_data: None,
         media_sources: None,
+        provider_ids: None,
     });
     
     Json(QueryResult {
@@ -480,6 +486,17 @@ pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str) -
     if movie.images.primary.is_some() {
         image_tags.insert("Primary".to_string(), movie.id.clone());
     }
+    if movie.images.backdrop.is_some() {
+        image_tags.insert("Backdrop".to_string(), movie.id.clone());
+    }
+    
+    let backdrop_image_tags = if movie.images.backdrop.is_some() {
+        Some(vec![movie.id.clone()])
+    } else {
+        None
+    };
+    
+    let provider_ids = HashMap::new();
     
     BaseItemDto {
         name: movie.name.clone(),
@@ -509,8 +526,10 @@ pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str) -
         parent_index_number: None,
         child_count: None,
         image_tags,
+        backdrop_image_tags,
         user_data: None,
         media_sources: None,
+        provider_ids: Some(provider_ids),
     }
 }
 
@@ -519,6 +538,17 @@ pub fn convert_show_to_dto(show: &crate::collection::Show, parent_id: &str) -> B
     if show.images.primary.is_some() {
         image_tags.insert("Primary".to_string(), show.id.clone());
     }
+    if show.images.backdrop.is_some() {
+        image_tags.insert("Backdrop".to_string(), show.id.clone());
+    }
+    
+    let backdrop_image_tags = if show.images.backdrop.is_some() {
+        Some(vec![show.id.clone()])
+    } else {
+        None
+    };
+    
+    let provider_ids = HashMap::new();
     
     BaseItemDto {
         name: show.name.clone(),
@@ -548,8 +578,10 @@ pub fn convert_show_to_dto(show: &crate::collection::Show, parent_id: &str) -> B
         parent_index_number: None,
         child_count: Some(show.seasons.len() as i32),
         image_tags,
+        backdrop_image_tags,
         user_data: None,
         media_sources: None,
+        provider_ids: Some(provider_ids),
     }
 }
 
@@ -579,8 +611,10 @@ pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, 
         parent_index_number: None,
         child_count: Some(season.episodes.len() as i32),
         image_tags,
+        backdrop_image_tags: None,
         user_data: None,
         media_sources: None,
+        provider_ids: None,
     }
 }
 
@@ -615,7 +649,9 @@ pub fn convert_episode_to_dto(
         parent_index_number: Some(episode.season_number),
         child_count: None,
         image_tags,
+        backdrop_image_tags: None,
         user_data: None,
         media_sources: None,
+        provider_ids: None,
     }
 }

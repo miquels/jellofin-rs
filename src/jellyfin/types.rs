@@ -92,9 +92,13 @@ pub struct BaseItemDto {
     pub child_count: Option<i32>,
     pub image_tags: HashMap<String, String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub backdrop_image_tags: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub user_data: Option<UserItemData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_sources: Option<Vec<MediaSourceInfo>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_ids: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
