@@ -82,32 +82,90 @@ pub async fn get_current_user<B>(
 pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<BaseItemDto>> {
     let collections = state.collections.list_collections().await;
     
-    let items: Vec<BaseItemDto> = collections
+    let mut items: Vec<BaseItemDto> = collections
         .iter()
-        .map(|c| BaseItemDto {
-            name: c.name.clone(),
-            id: c.id.clone(),
-            item_type: "CollectionFolder".to_string(),
-            collection_type: Some(c.collection_type.as_str().to_string()),
-            overview: None,
-            production_year: None,
-            premiere_date: None,
-            community_rating: None,
-            runtime_ticks: None,
-            genres: None,
-            studios: None,
-            people: None,
-            parent_id: None,
-            series_id: None,
-            season_id: None,
-            index_number: None,
-            parent_index_number: None,
-            child_count: Some(c.item_count() as i32),
-            image_tags: HashMap::new(),
-            user_data: None,
-            media_sources: None,
+        .map(|c| {
+            // Convert "shows" to "tvshows" for Jellyfin API compatibility
+            let collection_type = match c.collection_type.as_str() {
+                "shows" => "tvshows",
+                other => other,
+            };
+            
+            BaseItemDto {
+                name: c.name.clone(),
+                id: c.id.clone(),
+                item_type: "CollectionFolder".to_string(),
+                collection_type: Some(collection_type.to_string()),
+                overview: None,
+                production_year: None,
+                premiere_date: None,
+                community_rating: None,
+                runtime_ticks: None,
+                genres: None,
+                studios: None,
+                people: None,
+                parent_id: None,
+                series_id: None,
+                season_id: None,
+                index_number: None,
+                parent_index_number: None,
+                child_count: Some(c.item_count() as i32),
+                image_tags: HashMap::new(),
+                user_data: None,
+                media_sources: None,
+            }
         })
         .collect();
+    
+    // Add Favorites virtual collection
+    items.push(BaseItemDto {
+        name: "Favorites".to_string(),
+        id: "collectionfavorites_f4a0b1c2d3e5c4b8a9e6f7d8e9a0b1c2".to_string(),
+        item_type: "CollectionFolder".to_string(),
+        collection_type: Some("playlists".to_string()),
+        overview: None,
+        production_year: None,
+        premiere_date: None,
+        community_rating: None,
+        runtime_ticks: None,
+        genres: None,
+        studios: None,
+        people: None,
+        parent_id: None,
+        series_id: None,
+        season_id: None,
+        index_number: None,
+        parent_index_number: None,
+        child_count: Some(0),
+        image_tags: HashMap::new(),
+        user_data: None,
+        media_sources: None,
+    });
+    
+    // Add Playlists virtual collection
+    items.push(BaseItemDto {
+        name: "Playlists".to_string(),
+        id: "collectionplaylist_2f0340563593c4d98b97c9bfa21ce23c".to_string(),
+        item_type: "CollectionFolder".to_string(),
+        collection_type: Some("playlists".to_string()),
+        overview: None,
+        production_year: None,
+        premiere_date: None,
+        community_rating: None,
+        runtime_ticks: None,
+        genres: None,
+        studios: None,
+        people: None,
+        parent_id: None,
+        series_id: None,
+        season_id: None,
+        index_number: None,
+        parent_index_number: None,
+        child_count: Some(0),
+        image_tags: HashMap::new(),
+        user_data: None,
+        media_sources: None,
+    });
     
     Json(QueryResult {
         items,
@@ -184,18 +242,35 @@ pub async fn get_latest_items(
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(16);
     
-    let mut items = Vec::new();
+    let mut all_items = Vec::new();
     
     if let Some(parent_id) = parent_id {
+        // Get latest from specific collection
         if let Some(collection) = state.collections.get_collection(parent_id).await {
-            let mut all_items: Vec<_> = collection.movies.values()
-                .map(|m| (m.date_created, convert_movie_to_dto(m, parent_id)))
-                .collect();
-            
-            all_items.sort_by(|a, b| b.0.cmp(&a.0));
-            items = all_items.into_iter().take(limit).map(|(_, dto)| dto).collect();
+            for movie in collection.movies.values() {
+                all_items.push((movie.date_created, convert_movie_to_dto(movie, parent_id)));
+            }
+            for show in collection.shows.values() {
+                all_items.push((show.date_created, convert_show_to_dto(show, parent_id)));
+            }
+        }
+    } else {
+        // Get latest from all collections
+        let collections = state.collections.list_collections().await;
+        for collection in collections {
+            let coll_id = &collection.id;
+            for movie in collection.movies.values() {
+                all_items.push((movie.date_created, convert_movie_to_dto(movie, coll_id)));
+            }
+            for show in collection.shows.values() {
+                all_items.push((show.date_created, convert_show_to_dto(show, coll_id)));
+            }
         }
     }
+    
+    // Sort by date descending and take limit
+    all_items.sort_by(|a, b| b.0.cmp(&a.0));
+    let items = all_items.into_iter().take(limit).map(|(_, dto)| dto).collect();
     
     Json(items)
 }
