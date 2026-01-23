@@ -1,0 +1,201 @@
+use image::{imageops::FilterType, DynamicImage, GenericImageView, ImageFormat};
+use sha2::{Digest, Sha256};
+use std::fs;
+use std::io::Cursor;
+use std::path::{Path, PathBuf};
+use tracing::{debug, error};
+
+pub struct ImageResizer {
+    cache_dir: PathBuf,
+}
+
+impl ImageResizer {
+    pub fn new(cache_dir: PathBuf) -> Result<Self, ImageResizerError> {
+        fs::create_dir_all(&cache_dir)?;
+        Ok(Self { cache_dir })
+    }
+
+    pub fn resize_image(
+        &self,
+        source_path: &Path,
+        width: Option<u32>,
+        height: Option<u32>,
+        quality: Option<u32>,
+    ) -> Result<Vec<u8>, ImageResizerError> {
+        let cache_key = self.generate_cache_key(source_path, width, height, quality);
+        let cache_path = self.cache_dir.join(&cache_key);
+
+        if cache_path.exists() {
+            debug!("Serving cached image: {}", cache_key);
+            return Ok(fs::read(&cache_path)?);
+        }
+
+        debug!("Resizing image: {:?}", source_path);
+
+        let img = image::open(source_path)?;
+        let (orig_width, orig_height) = img.dimensions();
+
+        let (target_width, target_height) = self.calculate_dimensions(
+            orig_width,
+            orig_height,
+            width,
+            height,
+        );
+
+        let resized = if target_width == orig_width && target_height == orig_height {
+            img
+        } else {
+            img.resize(target_width, target_height, FilterType::Lanczos3)
+        };
+
+        let format = self.detect_format(source_path)?;
+        let encoded = self.encode_image(resized, format, quality)?;
+
+        if let Err(e) = fs::write(&cache_path, &encoded) {
+            error!("Failed to write cache file {}: {}", cache_key, e);
+        }
+
+        Ok(encoded)
+    }
+
+    fn calculate_dimensions(
+        &self,
+        orig_width: u32,
+        orig_height: u32,
+        width: Option<u32>,
+        height: Option<u32>,
+    ) -> (u32, u32) {
+        match (width, height) {
+            (Some(w), Some(h)) => (w, h),
+            (Some(w), None) => {
+                let aspect_ratio = orig_height as f32 / orig_width as f32;
+                let h = (w as f32 * aspect_ratio).round() as u32;
+                (w, h)
+            }
+            (None, Some(h)) => {
+                let aspect_ratio = orig_width as f32 / orig_height as f32;
+                let w = (h as f32 * aspect_ratio).round() as u32;
+                (w, h)
+            }
+            (None, None) => (orig_width, orig_height),
+        }
+    }
+
+    fn detect_format(&self, path: &Path) -> Result<ImageFormat, ImageResizerError> {
+        let extension = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .ok_or_else(|| ImageResizerError::UnsupportedFormat("No extension".to_string()))?
+            .to_lowercase();
+
+        match extension.as_str() {
+            "jpg" | "jpeg" => Ok(ImageFormat::Jpeg),
+            "png" => Ok(ImageFormat::Png),
+            "webp" => Ok(ImageFormat::WebP),
+            "gif" => Ok(ImageFormat::Gif),
+            _ => Err(ImageResizerError::UnsupportedFormat(extension)),
+        }
+    }
+
+    fn encode_image(
+        &self,
+        img: DynamicImage,
+        format: ImageFormat,
+        quality: Option<u32>,
+    ) -> Result<Vec<u8>, ImageResizerError> {
+        let mut buffer = Cursor::new(Vec::new());
+
+        match format {
+            ImageFormat::Jpeg => {
+                let quality = quality.unwrap_or(90).clamp(1, 100);
+                let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, quality as u8);
+                img.write_with_encoder(encoder)?;
+            }
+            ImageFormat::Png => {
+                img.write_to(&mut buffer, ImageFormat::Png)?;
+            }
+            ImageFormat::WebP => {
+                img.write_to(&mut buffer, ImageFormat::WebP)?;
+            }
+            ImageFormat::Gif => {
+                img.write_to(&mut buffer, ImageFormat::Gif)?;
+            }
+            _ => {
+                return Err(ImageResizerError::UnsupportedFormat(
+                    format!("{:?}", format),
+                ));
+            }
+        }
+
+        Ok(buffer.into_inner())
+    }
+
+    fn generate_cache_key(
+        &self,
+        source_path: &Path,
+        width: Option<u32>,
+        height: Option<u32>,
+        quality: Option<u32>,
+    ) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(source_path.to_string_lossy().as_bytes());
+        hasher.update(width.unwrap_or(0).to_le_bytes());
+        hasher.update(height.unwrap_or(0).to_le_bytes());
+        hasher.update(quality.unwrap_or(0).to_le_bytes());
+
+        if let Ok(metadata) = fs::metadata(source_path) {
+            if let Ok(modified) = metadata.modified() {
+                if let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) {
+                    hasher.update(duration.as_secs().to_le_bytes());
+                }
+            }
+        }
+
+        let result = hasher.finalize();
+        let hash = hex::encode(result);
+
+        let extension = source_path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("jpg");
+
+        format!("{}.{}", hash, extension)
+    }
+
+    pub fn clear_cache(&self) -> Result<(), ImageResizerError> {
+        if self.cache_dir.exists() {
+            fs::remove_dir_all(&self.cache_dir)?;
+            fs::create_dir_all(&self.cache_dir)?;
+        }
+        Ok(())
+    }
+
+    pub fn get_cache_size(&self) -> Result<u64, ImageResizerError> {
+        let mut total_size = 0u64;
+
+        if !self.cache_dir.exists() {
+            return Ok(0);
+        }
+
+        for entry in fs::read_dir(&self.cache_dir)? {
+            let entry = entry?;
+            if let Ok(metadata) = entry.metadata() {
+                if metadata.is_file() {
+                    total_size += metadata.len();
+                }
+            }
+        }
+
+        Ok(total_size)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ImageResizerError {
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Image error: {0}")]
+    Image(#[from] image::ImageError),
+    #[error("Unsupported format: {0}")]
+    UnsupportedFormat(String),
+}
