@@ -71,15 +71,15 @@ pub struct CollectionConfig {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct JellyfinConfig {
-    #[serde(rename = "serverId")]
+    #[serde(alias = "serverid", rename = "serverId")]
     #[serde(default)]
     pub server_id: Option<String>,
-    #[serde(rename = "servername")]
+    #[serde(alias = "servername", rename = "servername")]
     #[serde(default = "default_server_name")]
     pub server_name: String,
     #[serde(default)]
     pub autoregister: bool,
-    #[serde(rename = "imagequalityposter")]
+    #[serde(alias = "imagequalityposter", rename = "imagequalityposter")]
     #[serde(default)]
     pub image_quality_poster: Option<i32>,
 }

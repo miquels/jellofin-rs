@@ -1,11 +1,21 @@
 pub mod auth;
+pub mod branding;
+pub mod device;
 pub mod handlers;
+pub mod metadata;
+pub mod playlist;
+pub mod session;
 pub mod streaming;
 pub mod types;
 pub mod userdata;
 
 pub use auth::*;
+pub use branding::*;
+pub use device::*;
 pub use handlers::*;
+pub use metadata::*;
+pub use playlist::*;
+pub use session::*;
 pub use streaming::*;
 pub use types::*;
 pub use userdata::*;

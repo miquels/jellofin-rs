@@ -255,7 +255,18 @@ src/
 - `serve_data_file(source, path, ?width, ?height, ?quality)` - GET `/data/:source/*path`
   - Serves media files and images
   - Integrates with `ImageResizer` for on-demand resizing
+  - Automatically proxies HLS requests (paths containing `.mp4/`)
   - Path traversal protection
+
+#### `proxy.rs`
+- `hls_proxy(source, path)` - HLS streaming proxy
+  - Proxies requests to external HLS servers
+  - Triggered for paths containing `.mp4/`
+  - Reads `hls_server` from collection config
+  - Removes hop-by-hop headers
+  - Adds X-Forwarded-For header
+  - 120-second timeout
+  - Uses reqwest with rustls-tls backend
 
 ---
 
@@ -351,6 +362,120 @@ src/
 - `find_subtitle_file()` - Locates subtitle file by index
 - `stream_with_range()` - Handles partial content delivery
 - `stream_full_file()` - Handles full file streaming
+
+#### `metadata.rs`
+
+**Genre/Studio/Person Endpoints:**
+- `get_genres(?StartIndex, ?Limit)` - GET `/Genres`
+  - Aggregates all genres across all collections
+  - Returns sorted list of unique genres
+  - Each genre has deterministic SHA256-based ID
+  - Supports pagination with StartIndex and Limit
+- `get_studios(?StartIndex, ?Limit)` - GET `/Studios`
+  - Aggregates all studios/production companies
+  - Returns sorted list of unique studios
+  - Each studio has deterministic SHA256-based ID
+  - Supports pagination
+- `get_persons(?StartIndex, ?Limit)` - GET `/Persons`
+  - Aggregates all actors/directors/people
+  - Returns sorted list of unique persons
+  - Each person has deterministic SHA256-based ID
+  - Supports pagination
+
+**Helper Functions:**
+- `generate_metadata_id()` - SHA256-based ID generation for metadata items
+
+#### `device.rs`
+
+**Device Management:**
+- `get_devices()` - GET `/Devices`
+  - Lists all devices (access tokens) for current user
+  - Each device shows: ID, name, app info, last activity
+  - Returns device capabilities (media control, persistent ID)
+- `delete_device(?id)` - DELETE `/Devices?id={deviceId}`
+  - Deletes device by removing its access token
+  - Effectively logs out that device
+  - Returns 204 No Content on success
+- `get_device_info(?id)` - GET `/Devices/Info?id={deviceId}`
+  - Returns detailed info for specific device
+  - Includes device metadata and capabilities
+- `get_device_options(?id)` - GET `/Devices/Options?id={deviceId}`
+  - Returns device configuration options
+  - Custom name and auto-login settings
+
+**Implementation Notes:**
+- Devices are based on access tokens (one token = one device)
+- Device ID comes from access token's device_id field
+- Deleting a device removes the access token from database
+
+#### `session.rs`
+
+**Session Management:**
+- `get_sessions()` - GET `/Sessions`
+  - Lists active sessions for current user
+  - Deduplicates by device ID (keeps most recent per device)
+  - Returns session info with play state and capabilities
+  - Uses hardcoded session ID (matches Go implementation)
+- `post_session_capabilities()` - POST `/Sessions/Capabilities`
+  - Accepts client capability reporting
+  - Returns 204 No Content (capabilities not stored)
+- `post_session_capabilities_full()` - POST `/Sessions/Capabilities/Full`
+  - Accepts full client capability reporting
+  - Returns 204 No Content (capabilities not stored)
+
+**Implementation Notes:**
+- Sessions derived from access tokens (not separately tracked)
+- Hardcoded session ID: `e3a869b7a901f8894de8ee65688db6c0`
+- No real-time session state tracking
+- Capability endpoints are stubs (accept but ignore data)
+
+#### `branding.rs`
+
+**Branding/Localization Endpoints:**
+- `get_branding_configuration()` - GET `/Branding/Configuration`
+  - Returns branding options (login disclaimer, custom CSS)
+  - Currently returns empty values (customizable in future)
+- `get_cultures()` - GET `/Localization/Cultures`
+  - Returns list of supported cultures/languages
+  - Includes ISO language codes (2-letter and 3-letter)
+  - Pre-configured list: en-US, en-GB, es-ES, fr-FR, de-DE, it-IT, nl-NL
+- `get_countries()` - GET `/Localization/Countries`
+  - Returns list of supported countries
+  - Includes ISO region codes (2-letter and 3-letter)
+  - Pre-configured list: US, GB, CA, AU, DE, FR, ES, IT, NL
+
+#### `playlist.rs`
+
+**Playlist Management:**
+- `create_playlist(name, user_id, ids)` - POST `/Playlists`
+  - Creates new playlist with optional initial items
+  - Generates deterministic ID from playlist name
+  - Accepts items via query parameters or JSON body
+  - Returns playlist ID
+- `get_playlist(playlist_id)` - GET `/Playlists/{id}`
+  - Returns playlist metadata and item IDs
+  - Verifies user ownership
+  - Returns OpenAccess=false, empty Shares array
+- `get_playlist_items(playlist_id)` - GET `/Playlists/{id}/Items`
+  - Returns full BaseItemDto for each item in playlist
+  - Searches all collections for items
+  - Maintains playlist order
+- `add_playlist_items(playlist_id, ids)` - POST `/Playlists/{id}/Items`
+  - Adds items to end of playlist
+  - Comma-separated IDs in query parameter
+  - Returns 204 No Content
+- `delete_playlist_items(playlist_id, ids)` - DELETE `/Playlists/{id}/Items`
+  - Removes items from playlist
+  - Comma-separated IDs in query parameter
+  - Returns 204 No Content
+- `get_playlist_users(playlist_id)` - GET `/Playlists/{id}/Users`
+  - Returns users with access (always current user)
+  - CanEdit always true for owner
+- `get_playlist_user(playlist_id, user_id)` - GET `/Playlists/{id}/Users/{user_id}`
+  - Returns access details for specific user
+
+**Helper Functions:**
+- `generate_playlist_id()` - SHA256-based ID generation (same algorithm as items)
 
 #### `userdata.rs`
 
@@ -616,6 +741,61 @@ src/
 - `Limit` - Maximum results (for Resume and NextUp)
 - `PositionTicks` - Playback position in ticks (for Progress)
 
+#### Playlists
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/Playlists` | Create new playlist |
+| GET | `/Playlists/:id` | Get playlist details |
+| GET | `/Playlists/:id/Items` | Get items in playlist |
+| POST | `/Playlists/:id/Items` | Add items to playlist |
+| DELETE | `/Playlists/:id/Items` | Remove items from playlist |
+| GET | `/Playlists/:id/Users` | Get users with access |
+| GET | `/Playlists/:id/Users/:user_id` | Get user access details |
+
+**Query Parameters (POST /Playlists):**
+- `Name` - Playlist name (required)
+- `userId` - Owner user ID (defaults to current user)
+- `Ids` - Comma-separated item IDs to add initially
+
+**Query Parameters (POST/DELETE /Playlists/:id/Items):**
+- `Ids` - Comma-separated item IDs to add/remove
+
+#### Metadata
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/Genres` | List all genres across collections |
+| GET | `/Studios` | List all studios/production companies |
+| GET | `/Persons` | List all actors/directors/people |
+
+**Query Parameters:**
+- `StartIndex` - Starting index for pagination (default: 0)
+- `Limit` - Maximum results to return (default: all)
+
+#### Branding & Localization
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/Branding/Configuration` | Get branding options |
+| GET | `/Localization/Cultures` | List supported cultures/languages |
+| GET | `/Localization/Countries` | List supported countries |
+
+#### Devices
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/Devices` | List all devices for current user |
+| DELETE | `/Devices?id={deviceId}` | Delete device (logout) |
+| GET | `/Devices/Info?id={deviceId}` | Get device details |
+| GET | `/Devices/Options?id={deviceId}` | Get device options |
+
+**Query Parameters:**
+- `id` - Device ID (required for Info, Options, and Delete)
+
+#### Sessions
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/Sessions` | List active sessions |
+| POST | `/Sessions/Capabilities` | Report client capabilities (stub) |
+| POST | `/Sessions/Capabilities/Full` | Report full capabilities (stub) |
+
 ---
 
 ## Configuration Example
@@ -641,14 +821,14 @@ collections:
     type: "movies"
     directory: "/media/movies"
     base_url: null
-    hls_server: null
+    hls_server: "http://localhost:6453/media/movies/"
   
   - id: "tvshows"
     name: "TV Shows"
     type: "shows"
     directory: "/media/tv"
     base_url: null
-    hls_server: null
+    hls_server: "http://localhost:6453/media/tv/"
 ```
 
 ---
@@ -684,6 +864,14 @@ collections:
 - Tokio runtime for all I/O operations
 - Async file reading for streaming
 - Async database queries with sqlx
+
+### 7. Image Cache Management
+- `get_cache_stats()` - Returns cache statistics (file count, total size, oldest/newest files)
+- `cleanup_old_cache(max_age_days)` - Removes cache files older than specified days
+- `clear_cache()` - Completely clears the image cache
+- `get_cache_size()` - Returns total cache size in bytes
+- Automatic cache directory creation on startup
+- SHA256-based cache keys for deterministic file naming
 
 ---
 

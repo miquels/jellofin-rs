@@ -59,18 +59,39 @@ pub async fn run(config_path: &str) -> Result<(), ServerError> {
         .parse()
         .map_err(|e| ServerError::Server(format!("Invalid address: {}", e)))?;
     
-    let state = server::AppState::new(config, db, collection_repo, image_resizer);
+    let has_tls = config.listen.tlscert.is_some() && config.listen.tlskey.is_some();
+    
+    let state = server::AppState::new(config.clone(), db, collection_repo, image_resizer);
     let app = server::build_router(state);
     
-    info!("Serving HTTP on {}", addr);
-    
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .map_err(|e| ServerError::Server(format!("Failed to bind: {}", e)))?;
-    
-    axum::serve(listener, app)
-        .await
-        .map_err(|e| ServerError::Server(format!("Server error: {}", e)))?;
+    if has_tls {
+        let cert_path = config.listen.tlscert.as_ref().unwrap();
+        let key_path = config.listen.tlskey.as_ref().unwrap();
+        
+        info!("Loading TLS certificate from {}", cert_path);
+        info!("Loading TLS key from {}", key_path);
+        
+        let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert_path, key_path)
+            .await
+            .map_err(|e| ServerError::Server(format!("Failed to load TLS config: {}", e)))?;
+        
+        info!("Serving HTTPS on {}", addr);
+        
+        axum_server::bind_rustls(addr, tls_config)
+            .serve(app.into_make_service())
+            .await
+            .map_err(|e| ServerError::Server(format!("Server error: {}", e)))?;
+    } else {
+        info!("Serving HTTP on {}", addr);
+        
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
+            .map_err(|e| ServerError::Server(format!("Failed to bind: {}", e)))?;
+        
+        axum::serve(listener, app)
+            .await
+            .map_err(|e| ServerError::Server(format!("Server error: {}", e)))?;
+    }
     
     Ok(())
 }

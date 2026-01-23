@@ -234,9 +234,44 @@ Implement in the order that reduces integration pain:
    - `/Shows/NextUp`
 
 8. **Playlists**
-   - `/Playlists*` endpoints used by the Go server
+   - `POST /Playlists` - Create playlist
+   - `GET /Playlists/{id}` - Get playlist details
+   - `GET /Playlists/{id}/Items` - Get playlist items
+   - `POST /Playlists/{id}/Items` - Add items to playlist
+   - `DELETE /Playlists/{id}/Items` - Remove items from playlist
+   - `GET /Playlists/{id}/Users` - Get playlist access
 
-### Milestone 9 — Integration testing + client smoke tests
+### Milestone 9 — Additional Jellyfin API endpoints
+
+**Outcome:** Enhanced functionality matching more Go server features.
+
+Implement additional endpoints that exist in the Go server:
+
+1. **Genre/Studio endpoints**
+   - `GET /Genres` - List all genres across collections
+   - `GET /Studios` - List all studios/production companies
+   - `GET /Persons` - List all actors/directors
+
+2. **Device/Session management**
+   - Device registration and tracking
+   - Active session monitoring
+   - Playback progress reporting to sessions
+
+3. **Branding/Localization**
+   - `GET /Branding/Configuration` - Custom branding
+   - `GET /Localization/Countries` - Country list
+   - `GET /Localization/Cultures` - Culture/language list
+
+4. **Image cache management**
+   - Automatic cache cleanup based on age/size
+   - Cache statistics endpoint
+   - Manual cache clearing
+
+5. **HLS Proxy support**
+   - Proxy requests to external HLS servers
+   - Support for `hlsserver` configuration in collections
+
+### Milestone 10 — Integration testing + client smoke tests
 
 **Outcome:** Confidence that behavior matches Go for core flows.
 

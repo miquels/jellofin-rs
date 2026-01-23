@@ -3,6 +3,7 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
 use tracing::{debug, error};
 
 pub struct ImageResizer {
@@ -170,6 +171,69 @@ impl ImageResizer {
         Ok(())
     }
 
+    pub fn get_cache_stats(&self) -> Result<CacheStats, ImageResizerError> {
+        let mut stats = CacheStats {
+            total_files: 0,
+            total_size: 0,
+            oldest_file: None,
+            newest_file: None,
+        };
+
+        if !self.cache_dir.exists() {
+            return Ok(stats);
+        }
+
+        for entry in fs::read_dir(&self.cache_dir)? {
+            let entry = entry?;
+            let metadata = entry.metadata()?;
+
+            if metadata.is_file() {
+                stats.total_files += 1;
+                stats.total_size += metadata.len();
+
+                if let Ok(modified) = metadata.modified() {
+                    if stats.oldest_file.is_none() || Some(modified) < stats.oldest_file {
+                        stats.oldest_file = Some(modified);
+                    }
+                    if stats.newest_file.is_none() || Some(modified) > stats.newest_file {
+                        stats.newest_file = Some(modified);
+                    }
+                }
+            }
+        }
+
+        Ok(stats)
+    }
+
+    pub fn cleanup_old_cache(&self, max_age_days: u64) -> Result<usize, ImageResizerError> {
+        let mut removed = 0;
+
+        if !self.cache_dir.exists() {
+            return Ok(0);
+        }
+
+        let now = SystemTime::now();
+        let max_age = Duration::from_secs(max_age_days * 24 * 60 * 60);
+
+        for entry in fs::read_dir(&self.cache_dir)? {
+            let entry = entry?;
+            let metadata = entry.metadata()?;
+
+            if metadata.is_file() {
+                if let Ok(modified) = metadata.modified() {
+                    if let Ok(age) = now.duration_since(modified) {
+                        if age > max_age {
+                            fs::remove_file(entry.path())?;
+                            removed += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(removed)
+    }
+
     pub fn get_cache_size(&self) -> Result<u64, ImageResizerError> {
         let mut total_size = 0u64;
 
@@ -188,6 +252,14 @@ impl ImageResizer {
 
         Ok(total_size)
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct CacheStats {
+    pub total_files: usize,
+    pub total_size: u64,
+    pub oldest_file: Option<std::time::SystemTime>,
+    pub newest_file: Option<std::time::SystemTime>,
 }
 
 #[derive(Debug, thiserror::Error)]

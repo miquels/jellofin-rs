@@ -280,6 +280,7 @@ pub async fn serve_data_file(
     State(state): State<AppState>,
     Path(path_parts): Path<String>,
     Query(params): Query<HashMap<String, String>>,
+    req: axum::http::Request<axum::body::Body>,
 ) -> Result<Response, StatusCode> {
     use axum::body::Body;
     use axum::http::header;
@@ -293,6 +294,16 @@ pub async fn serve_data_file(
     
     let source = parts[0];
     let file_path = parts[1..].join("/");
+    
+    // Check if this is an HLS proxy request (contains .mp4/)
+    if file_path.contains(".mp4/") {
+        // Try HLS proxy
+        return crate::notflix::hls_proxy(
+            axum::extract::State(state),
+            axum::extract::Path((source.to_string(), file_path.clone())),
+            req,
+        ).await;
+    }
     
     let collection = state
         .collections
