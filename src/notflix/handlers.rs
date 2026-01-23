@@ -27,50 +27,21 @@ pub async fn list_collections(State(state): State<AppState>) -> Json<Vec<Collect
 pub async fn get_collection(
     State(state): State<AppState>,
     Path(collection_id): Path<String>,
-) -> Result<Json<CollectionDetail>, StatusCode> {
+) -> Result<Json<CollectionInfo>, StatusCode> {
     let collection = state
         .collections
         .get_collection(&collection_id)
         .await
         .ok_or(StatusCode::NOT_FOUND)?;
     
-    let mut items = Vec::new();
-    
-    for movie in collection.movies.values() {
-        items.push(ItemSummary {
-            id: movie.id.clone(),
-            name: movie.name.clone(),
-            item_type: "Movie".to_string(),
-            year: movie.production_year,
-            overview: movie.overview.clone(),
-            rating: movie.community_rating.map(|r| r as f32),
-            genres: movie.genres.clone(),
-            images: convert_images(&movie.id, &movie.images),
-        });
-    }
-    
-    for show in collection.shows.values() {
-        items.push(ItemSummary {
-            id: show.id.clone(),
-            name: show.name.clone(),
-            item_type: "Series".to_string(),
-            year: show.production_year,
-            overview: show.overview.clone(),
-            rating: show.community_rating.map(|r| r as f32),
-            genres: show.genres.clone(),
-            images: convert_images(&show.id, &show.images),
-        });
-    }
-    
-    let detail = CollectionDetail {
+    let info = CollectionInfo {
         id: collection.id.clone(),
         name: collection.name.clone(),
         collection_type: collection.collection_type.as_str().to_string(),
         path: collection.directory.to_string_lossy().to_string(),
-        items,
     };
     
-    Ok(Json(detail))
+    Ok(Json(info))
 }
 
 pub async fn get_collection_genres(

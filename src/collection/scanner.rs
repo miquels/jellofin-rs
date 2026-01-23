@@ -435,13 +435,12 @@ fn extract_language_from_filename(filename: &str) -> Option<String> {
     None
 }
 
-fn generate_id(collection_id: &str, name: &str) -> String {
+fn generate_id(_collection_id: &str, name: &str) -> String {
     use sha2::{Sha256, Digest};
     
-    // Create hash from collection_id:name
-    let input = format!("{}:{}", collection_id, name);
+    // Create hash from name only (matching Go server behavior)
     let mut hasher = Sha256::new();
-    hasher.update(input.as_bytes());
+    hasher.update(name.as_bytes());
     let hash = hasher.finalize();
     
     // Take first 16 bytes (128 bits) and convert to big integer

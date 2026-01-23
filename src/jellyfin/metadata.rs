@@ -7,14 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use crate::server::AppState;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct NameIdPair {
-    #[serde(rename = "Name")]
-    pub name: String,
-    #[serde(rename = "Id")]
-    pub id: String,
-}
+use super::types::NameIdPair;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct QueryResultNameIdPair {

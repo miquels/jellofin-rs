@@ -61,7 +61,7 @@ impl Collection {
         }
     }
 
-    pub fn get_item(&self, id: &str) -> Option<ItemRef> {
+    pub fn get_item(&self, id: &str) -> Option<ItemRef<'_>> {
         if let Some(movie) = self.movies.get(id) {
             return Some(ItemRef::Movie(movie));
         }

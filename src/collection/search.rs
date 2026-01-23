@@ -5,7 +5,7 @@ use tantivy::query::{BooleanQuery, FuzzyTermQuery, Occur, Query, QueryParser, Te
 use tantivy::schema::*;
 use tantivy::{Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument};
 use tokio::sync::RwLock;
-use tracing::{debug, error};
+use tracing::debug;
 
 use super::collection::Collection;
 use super::item::{Item, ItemType};

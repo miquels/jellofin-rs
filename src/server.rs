@@ -47,8 +47,8 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/collections", get(crate::notflix::list_collections))
         .route("/api/collection/:id", get(crate::notflix::get_collection))
         .route("/api/collection/:id/genres", get(crate::notflix::get_collection_genres))
-        .route("/api/collection/:id/items", get(crate::notflix::get_collection_items))
-        .route("/api/collection/:coll_id/item/:item_id", get(crate::notflix::get_item))
+        .route("/api/collection/:id/items", get(crate::notflix::get_collection_items_go))
+        .route("/api/collection/:coll_id/item/:item_id", get(crate::notflix::get_item_go))
         .route("/data/*path", get(crate::notflix::serve_data_file));
     
     let jellyfin_routes = Router::new()
