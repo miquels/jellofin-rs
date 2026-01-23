@@ -106,11 +106,42 @@ pub struct BaseItemDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub height: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_blur_hashes: Option<ImageBlurHashes>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_folder: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub etag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_created: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub user_data: Option<UserItemData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_sources: Option<Vec<MediaSourceInfo>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider_ids: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "PascalCase")]
+pub struct ImageBlurHashes {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub primary: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub art: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backdrop: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub banner: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub logo: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thumb: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
