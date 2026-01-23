@@ -63,7 +63,7 @@ pub async fn get_current_user<B>(
 ) -> Result<Json<UserDto>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
     
-    let user = state.db.get_user(&user_id).await
+    let user = state.db.get_user_by_id(&user_id).await
         .map_err(|_| StatusCode::NOT_FOUND)?;
     
     Ok(Json(UserDto {
