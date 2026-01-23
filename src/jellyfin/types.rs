@@ -94,6 +94,18 @@ pub struct BaseItemDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub backdrop_image_tags: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub primary_image_aspect_ratio: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub container: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub height: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub user_data: Option<UserItemData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_sources: Option<Vec<MediaSourceInfo>>,
