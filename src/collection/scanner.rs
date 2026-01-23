@@ -74,7 +74,6 @@ fn scan_movie_dir(dir: &Path, collection_id: &str) -> Option<Movie> {
     }
 
     video_files.sort();
-    let primary_video = video_files[0].clone();
 
     let mut movie = Movie {
         id: movie_id,
@@ -82,10 +81,11 @@ fn scan_movie_dir(dir: &Path, collection_id: &str) -> Option<Movie> {
         name: movie_name.clone(),
         sort_name: None,
         original_title: None,
-        path: primary_video.clone(),
+        path: dir.to_path_buf(),
         premiere_date: None,
         production_year: None,
         community_rating: None,
+        mpaa: None,
         runtime_ticks: None,
         overview: None,
         tagline: None,
@@ -100,14 +100,18 @@ fn scan_movie_dir(dir: &Path, collection_id: &str) -> Option<Movie> {
 
     if let Some(nfo_path) = nfo_path {
         if let Some(metadata) = parse_nfo_file(&nfo_path) {
+            // Keep directory name as movie.name (matching Go server)
+            // Store NFO title as original_title if different
             if let Some(title) = metadata.title {
-                movie.name = title;
+                if title != movie_name {
+                    movie.original_title = Some(title);
+                }
             }
-            movie.original_title = metadata.original_title;
             movie.sort_name = metadata.sort_title;
             movie.overview = metadata.plot;
             movie.tagline = metadata.tagline;
             movie.community_rating = metadata.rating;
+            movie.mpaa = metadata.mpaa;
             movie.production_year = metadata.year;
             movie.premiere_date = metadata.premiered;
             movie.genres = metadata.genres;

@@ -14,6 +14,7 @@ pub struct Movie {
     pub premiere_date: Option<DateTime<Utc>>,
     pub production_year: Option<i32>,
     pub community_rating: Option<f64>,
+    pub mpaa: Option<String>,
     pub runtime_ticks: Option<i64>,
     pub overview: Option<String>,
     pub tagline: Option<String>,

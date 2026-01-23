@@ -20,31 +20,20 @@ pub async fn get_item_go(
     
     // Check if it's a movie
     if let Some(movie) = collection.movies.get(&item_id) {
-        let video_path = movie.media_sources.first()
-            .map(|ms| {
-                // Get path relative to movie directory
-                if let Ok(rel) = ms.path.strip_prefix(&movie.path) {
-                    rel.to_string_lossy().to_string()
-                } else {
-                    ms.path.file_name()
-                        .map(|n| n.to_string_lossy().to_string())
-                        .unwrap_or_default()
-                }
-            })
+        // Get the actual video filename (not the full path)
+        let video_filename = movie.media_sources.first()
+            .and_then(|ms| ms.path.file_name())
+            .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
         
+        // Get the actual poster filename from images
+        let poster_filename = movie.images.primary.as_ref()
+            .and_then(|p| p.file_name())
+            .map(|n| n.to_string_lossy().to_string());
+        
         let thumb_path = movie.images.thumb.as_ref()
-            .and_then(|_| {
-                // Look for thumb file
-                let video_stem = StdPath::new(&video_path).file_stem()
-                    .map(|s| s.to_string_lossy().to_string())
-                    .unwrap_or_default();
-                if !video_stem.is_empty() {
-                    Some(format!("{}-thumb.jpg", video_stem))
-                } else {
-                    None
-                }
-            });
+            .and_then(|t| t.file_name())
+            .map(|n| n.to_string_lossy().to_string());
         
         let detail = GoMovieDetail {
             id: movie.id.clone(),
@@ -57,20 +46,20 @@ pub async fn get_item_go(
             sort_name: movie.sort_name.clone().unwrap_or_else(|| movie.name.to_lowercase()),
             nfo: GoNfo {
                 id: movie.id.clone(),
-                title: movie.name.clone(),
+                title: movie.original_title.clone().unwrap_or_else(|| movie.name.clone()),
                 plot: movie.overview.clone(),
                 premiered: movie.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
-                mpaa: None,
+                mpaa: movie.mpaa.clone(),
                 aired: movie.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
                 studio: movie.studios.first().cloned(),
                 rating: movie.community_rating,
             },
             fanart: movie.images.backdrop.as_ref().map(|_| "fanart.jpg".to_string()),
-            poster: movie.images.primary.as_ref().map(|_| "poster.jpg".to_string()),
+            poster: poster_filename,
             rating: movie.community_rating,
             genre: movie.genres.clone(),
             year: movie.production_year,
-            video: video_path,
+            video: video_filename,
             thumb: thumb_path,
         };
         return Ok(Json(detail).into_response());
@@ -218,16 +207,18 @@ pub async fn get_collection_items_go(
             sort_name: movie.sort_name.clone().unwrap_or_else(|| movie.name.to_lowercase()),
             nfo: GoNfo {
                 id: movie.id.clone(),
-                title: movie.name.clone(),
+                title: movie.original_title.clone().unwrap_or_else(|| movie.name.clone()),
                 plot: movie.overview.clone(),
                 premiered: movie.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
-                mpaa: None,
+                mpaa: movie.mpaa.clone(),
                 aired: movie.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
                 studio: movie.studios.first().cloned(),
                 rating: movie.community_rating,
             },
             fanart: movie.images.backdrop.as_ref().map(|_| "fanart.jpg".to_string()),
-            poster: movie.images.primary.as_ref().map(|_| "poster.jpg".to_string()),
+            poster: movie.images.primary.as_ref()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().to_string()),
             rating: movie.community_rating,
             genre: movie.genres.clone(),
             year: movie.production_year,
