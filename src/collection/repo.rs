@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use arc_swap::ArcSwap;
 use tracing::{error, info};
 
 use crate::config::CollectionConfig;
@@ -9,7 +9,7 @@ use super::scanner::{scan_collection, ScanError};
 use super::search::{SearchIndex, SearchResult};
 
 pub struct CollectionRepo {
-    collections: Arc<RwLock<HashMap<String, Collection>>>,
+    collections: Arc<ArcSwap<HashMap<String, Collection>>>,
     search_index: Arc<SearchIndex>,
 }
 
@@ -19,7 +19,7 @@ impl CollectionRepo {
             .map_err(|e| CollectionRepoError::Search(e.to_string()))?;
         
         Ok(Self {
-            collections: Arc::new(RwLock::new(HashMap::new())),
+            collections: Arc::new(ArcSwap::from_pointee(HashMap::new())),
             search_index: Arc::new(search_index),
         })
     }
@@ -39,24 +39,59 @@ impl CollectionRepo {
             config.hlsserver.clone(),
         );
 
-        let mut collections = self.collections.write().await;
-        collections.insert(id.clone(), collection);
+        // Clone current map, add new collection, and swap
+        let mut new_collections = (**self.collections.load()).clone();
+        new_collections.insert(id.clone(), collection);
+        self.collections.store(Arc::new(new_collections));
 
         info!("Added collection: {} ({})", config.name, id);
         Ok(())
     }
 
     pub async fn scan_all(&self) -> Result<(), CollectionRepoError> {
-        let mut collections = self.collections.write().await;
+        // Load current collections
+        let collections = self.collections.load();
+        let collection_ids: Vec<String> = collections.keys().cloned().collect();
         
-        for (id, collection) in collections.iter_mut() {
-            info!("Scanning collection: {}", collection.name);
-            if let Err(e) = scan_collection(collection) {
-                error!("Failed to scan collection {}: {}", id, e);
+        // Scan each collection in spawn_blocking
+        for id in collection_ids {
+            let collections = self.collections.load();
+            
+            if let Some(collection) = collections.get(&id) {
+                info!("Scanning collection: {}", collection.name);
+                
+                // Clone collection for scanning (keeps original available)
+                let mut cloned_collection = collection.clone();
+                
+                // Use spawn_blocking to avoid blocking the async runtime during filesystem I/O
+                let scan_result = tokio::task::spawn_blocking(move || {
+                    let result = scan_collection(&mut cloned_collection);
+                    (cloned_collection, result)
+                }).await;
+                
+                // Atomically update the collection after scan
+                match scan_result {
+                    Ok((scanned_collection, Ok(()))) => {
+                        let mut new_collections = (**self.collections.load()).clone();
+                        new_collections.insert(id.clone(), scanned_collection);
+                        self.collections.store(Arc::new(new_collections));
+                    },
+                    Ok((scanned_collection, Err(e))) => {
+                        error!("Failed to scan collection {}: {}", id, e);
+                        // Still update with scanned collection even if there was an error
+                        let mut new_collections = (**self.collections.load()).clone();
+                        new_collections.insert(id.clone(), scanned_collection);
+                        self.collections.store(Arc::new(new_collections));
+                    },
+                    Err(e) => {
+                        error!("Scan task panicked for collection {}: {}", id, e);
+                    },
+                }
             }
         }
         
         info!("Rebuilding search index");
+        let collections = self.collections.load();
         self.search_index.rebuild(&collections).await
             .map_err(|e| CollectionRepoError::Search(e.to_string()))?;
 
@@ -74,17 +109,17 @@ impl CollectionRepo {
     }
 
     pub async fn get_collection(&self, id: &str) -> Option<Collection> {
-        let collections = self.collections.read().await;
+        let collections = self.collections.load();
         collections.get(id).cloned()
     }
 
     pub async fn list_collections(&self) -> Vec<Collection> {
-        let collections = self.collections.read().await;
+        let collections = self.collections.load();
         collections.values().cloned().collect()
     }
 
     pub async fn get_collection_id_for_item(&self, item_id: &str) -> Option<String> {
-        let collections = self.collections.read().await;
+        let collections = self.collections.load();
         
         for (coll_id, collection) in collections.iter() {
             if collection.get_item(item_id).is_some() {
