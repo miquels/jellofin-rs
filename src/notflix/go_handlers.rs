@@ -6,6 +6,7 @@ use axum::{
 };
 use std::path::Path as StdPath;
 use crate::server::AppState;
+use crate::collection::sort_name::make_sort_name;
 use super::go_types::*;
 
 pub async fn get_item_go(
@@ -43,7 +44,7 @@ pub async fn get_item_go(
             item_type: "movie".to_string(),
             firstvideo: movie.date_created.timestamp_millis(),
             lastvideo: movie.date_modified.timestamp_millis(),
-            sort_name: movie.sort_name.clone().unwrap_or_else(|| movie.name.to_lowercase()),
+            sort_name: movie.sort_name.clone().unwrap_or_else(|| make_sort_name(&movie.name)),
             nfo: GoNfo {
                 id: movie.id.clone(),
                 title: movie.original_title.clone().unwrap_or_else(|| movie.name.clone()),
@@ -157,7 +158,7 @@ pub async fn get_item_go(
             item_type: "show".to_string(),
             firstvideo: first_video,
             lastvideo: last_video,
-            sort_name: show.sort_name.clone().unwrap_or_else(|| show.name.to_lowercase()),
+            sort_name: show.sort_name.clone().unwrap_or_else(|| make_sort_name(&show.name)),
             nfo: GoNfo {
                 id: show.id.clone(),
                 title: show.name.clone(),
@@ -204,7 +205,7 @@ pub async fn get_collection_items_go(
             item_type: "movie".to_string(),
             firstvideo: movie.date_created.timestamp_millis(),
             lastvideo: movie.date_modified.timestamp_millis(),
-            sort_name: movie.sort_name.clone().unwrap_or_else(|| movie.name.to_lowercase()),
+            sort_name: movie.sort_name.clone().unwrap_or_else(|| make_sort_name(&movie.name)),
             nfo: GoNfo {
                 id: movie.id.clone(),
                 title: movie.original_title.clone().unwrap_or_else(|| movie.name.clone()),
@@ -258,7 +259,7 @@ pub async fn get_collection_items_go(
             item_type: "show".to_string(),
             firstvideo: first_video,
             lastvideo: last_video,
-            sort_name: show.sort_name.clone().unwrap_or_else(|| show.name.to_lowercase()),
+            sort_name: show.sort_name.clone().unwrap_or_else(|| make_sort_name(&show.name)),
             nfo: GoNfo {
                 id: show.id.clone(),
                 title: show.name.clone(),

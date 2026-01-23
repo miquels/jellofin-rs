@@ -1,8 +1,11 @@
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tracing::debug;
+
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
 
 use super::collection::{Collection, CollectionType};
 use super::item::*;
@@ -120,8 +123,28 @@ fn scan_movie_dir(dir: &Path, collection_id: &str) -> Option<Movie> {
         }
     }
 
+    // Use file ctime for timestamps (matching Go server behavior)
+    let mut earliest_time = Utc::now();
+    let mut latest_time = Utc::now();
+    let mut first = true;
+    
     for video_file in video_files {
         if let Ok(metadata) = fs::metadata(&video_file) {
+            // Track earliest and latest file ctimes
+            let file_time = get_file_ctime(&metadata);
+            if first {
+                earliest_time = file_time;
+                latest_time = file_time;
+                first = false;
+            } else {
+                if file_time < earliest_time {
+                    earliest_time = file_time;
+                }
+                if file_time > latest_time {
+                    latest_time = file_time;
+                }
+            }
+            
             let subtitles = find_subtitles(&video_file);
             movie.media_sources.push(MediaSource {
                 path: video_file.clone(),
@@ -132,6 +155,9 @@ fn scan_movie_dir(dir: &Path, collection_id: &str) -> Option<Movie> {
             });
         }
     }
+    
+    movie.date_created = earliest_time;
+    movie.date_modified = latest_time;
 
     Some(movie)
 }
@@ -322,7 +348,11 @@ fn create_episode(
     }
 
     let subtitles = find_subtitles(path);
-    let size = fs::metadata(path).ok()?.len();
+    let metadata = fs::metadata(path).ok()?;
+    let size = metadata.len();
+    
+    // Use file ctime for timestamps (matching Go server behavior)
+    let file_time = get_file_ctime(&metadata);
 
     Some(Episode {
         id: episode_id,
@@ -345,8 +375,8 @@ fn create_episode(
             bitrate: None,
             subtitles,
         }],
-        date_created: Utc::now(),
-        date_modified: Utc::now(),
+        date_created: file_time,
+        date_modified: file_time,
     })
 }
 
@@ -437,6 +467,24 @@ fn extract_language_from_filename(filename: &str) -> Option<String> {
         }
     }
     None
+}
+
+/// Get file creation time (ctime) as DateTime<Utc>
+#[cfg(unix)]
+fn get_file_ctime(metadata: &std::fs::Metadata) -> DateTime<Utc> {
+    let ctime_secs = metadata.ctime();
+    let ctime_nsecs = metadata.ctime_nsec();
+    DateTime::from_timestamp(ctime_secs, ctime_nsecs as u32)
+        .unwrap_or_else(Utc::now)
+}
+
+#[cfg(not(unix))]
+fn get_file_ctime(metadata: &std::fs::Metadata) -> DateTime<Utc> {
+    // Fallback for non-Unix systems
+    metadata.modified()
+        .ok()
+        .and_then(|t| DateTime::<Utc>::from(t).into())
+        .unwrap_or_else(Utc::now)
 }
 
 fn generate_id(_collection_id: &str, name: &str) -> String {

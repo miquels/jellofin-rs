@@ -5,6 +5,7 @@ pub mod parse_filename;
 pub mod repo;
 pub mod scanner;
 pub mod search;
+pub mod sort_name;
 
 pub use collection::{Collection, CollectionType, ItemRef};
 pub use item::{Episode, ImageInfo, Item, ItemType, MediaSource, Movie, Person, PersonType, Season, Show, SubtitleStream};
