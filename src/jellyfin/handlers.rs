@@ -14,7 +14,7 @@ use super::types::*;
 pub async fn system_info(State(state): State<AppState>) -> Json<SystemInfo> {
     Json(SystemInfo {
         server_name: state.config.jellyfin.server_name.clone(),
-        version: "10.8.0".to_string(),
+        version: "10.10.7".to_string(),
         id: state.config.jellyfin.server_id.clone().unwrap_or_else(|| "jellyfin-rs".to_string()),
         operating_system: std::env::consts::OS.to_string(),
     })
@@ -23,7 +23,7 @@ pub async fn system_info(State(state): State<AppState>) -> Json<SystemInfo> {
 pub async fn public_system_info(State(state): State<AppState>) -> Json<PublicSystemInfo> {
     Json(PublicSystemInfo {
         server_name: state.config.jellyfin.server_name.clone(),
-        version: "10.8.0".to_string(),
+        version: "10.10.7".to_string(),
         id: state.config.jellyfin.server_id.clone().unwrap_or_else(|| "jellyfin-rs".to_string()),
     })
 }
