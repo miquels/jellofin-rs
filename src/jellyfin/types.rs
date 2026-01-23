@@ -24,6 +24,7 @@ pub struct UserDto {
     pub id: String,
     pub has_password: bool,
     pub has_configured_password: bool,
+    pub has_configured_easy_password: bool,
     pub policy: UserPolicy,
 }
 

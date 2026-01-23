@@ -46,6 +46,7 @@ pub async fn get_users(State(_state): State<AppState>) -> Result<Json<Vec<UserDt
             id: u.id,
             has_password: false,
             has_configured_password: false,
+            has_configured_easy_password: false,
             policy: UserPolicy {
                 is_administrator: false,
                 is_disabled: false,
@@ -71,6 +72,7 @@ pub async fn get_current_user<B>(
         id: user.id,
         has_password: false,
         has_configured_password: false,
+        has_configured_easy_password: false,
         policy: UserPolicy {
             is_administrator: false,
             is_disabled: false,

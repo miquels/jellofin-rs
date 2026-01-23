@@ -59,6 +59,7 @@ pub async fn authenticate_by_name(
             id: user.id.clone(),
             has_password: false,
             has_configured_password: false,
+            has_configured_easy_password: false,
             policy: UserPolicy {
                 is_administrator: false,
                 is_disabled: false,
