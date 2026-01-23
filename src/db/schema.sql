@@ -25,28 +25,20 @@ CREATE TABLE IF NOT EXISTS accesstokens (
 
 CREATE UNIQUE INDEX IF NOT EXISTS accesstokens_idx ON accesstokens (userid, token);
 
--- Items table
+-- Items table (matching Go schema)
 CREATE TABLE IF NOT EXISTS items (
-    id TEXT PRIMARY KEY,
-    parent_id TEXT,
-    collection_id TEXT NOT NULL,
+    id TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
-    sort_name TEXT,
-    original_title TEXT,
-    premiere_date TEXT,
-    community_rating REAL,
-    runtime_ticks INTEGER,
-    production_year INTEGER,
-    index_number INTEGER,
-    parent_index_number INTEGER,
-    item_type TEXT NOT NULL,
-    date_created TEXT NOT NULL,
-    date_modified TEXT NOT NULL
+    votes INTEGER,
+    year INTEGER,
+    genre TEXT NOT NULL,
+    rating REAL,
+    nfotime INTEGER NOT NULL,
+    firstvideo INTEGER NOT NULL,
+    lastvideo INTEGER NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_items_parent_id ON items(parent_id);
-CREATE INDEX IF NOT EXISTS idx_items_collection_id ON items(collection_id);
-CREATE INDEX IF NOT EXISTS idx_items_item_type ON items(item_type);
+CREATE INDEX IF NOT EXISTS items_name_idx ON items (name);
 
 -- User playstate/data table (matching Go schema)
 CREATE TABLE IF NOT EXISTS playstate (

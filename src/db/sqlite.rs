@@ -247,11 +247,8 @@ impl AccessTokenRepo for SqliteRepository {
 #[async_trait]
 impl ItemRepo for SqliteRepository {
     async fn get_item(&self, id: &str) -> DbResult<Item> {
-        let result = sqlx::query_as::<_, (String, Option<String>, String, String, Option<String>, Option<String>, 
-            Option<String>, Option<f64>, Option<i64>, Option<i32>, Option<i32>, Option<i32>, String, String, String)>(
-            "SELECT id, parent_id, collection_id, name, sort_name, original_title, premiere_date, 
-             community_rating, runtime_ticks, production_year, index_number, parent_index_number, 
-             item_type, date_created, date_modified FROM items WHERE id = ?"
+        let result = sqlx::query_as::<_, (String, String, Option<i32>, Option<i32>, String, Option<f32>, i64, i64, i64)>(
+            "SELECT id, name, votes, year, genre, rating, nfotime, firstvideo, lastvideo FROM items WHERE id = ?"
         )
         .bind(id)
         .fetch_one(&self.pool)
@@ -263,50 +260,32 @@ impl ItemRepo for SqliteRepository {
 
         Ok(Item {
             id: result.0,
-            parent_id: result.1,
-            collection_id: result.2,
-            name: result.3,
-            sort_name: result.4,
-            original_title: result.5,
-            premiere_date: result.6.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
-            community_rating: result.7,
-            runtime_ticks: result.8,
-            production_year: result.9,
-            index_number: result.10,
-            parent_index_number: result.11,
-            item_type: result.12,
-            date_created: DateTime::parse_from_rfc3339(&result.13)
-                .map_err(|e| DbError::Sqlx(sqlx::Error::Decode(Box::new(e))))?
-                .with_timezone(&Utc),
-            date_modified: DateTime::parse_from_rfc3339(&result.14)
-                .map_err(|e| DbError::Sqlx(sqlx::Error::Decode(Box::new(e))))?
-                .with_timezone(&Utc),
+            name: result.1,
+            votes: result.2,
+            year: result.3,
+            genre: result.4,
+            rating: result.5,
+            nfotime: result.6,
+            firstvideo: result.7,
+            lastvideo: result.8,
         })
     }
 
     async fn upsert_item(&self, item: &Item) -> DbResult<()> {
         sqlx::query(
             "INSERT OR REPLACE INTO items 
-            (id, parent_id, collection_id, name, sort_name, original_title, premiere_date, 
-             community_rating, runtime_ticks, production_year, index_number, parent_index_number, 
-             item_type, date_created, date_modified)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+            (id, name, votes, year, genre, rating, nfotime, firstvideo, lastvideo)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(&item.id)
-        .bind(&item.parent_id)
-        .bind(&item.collection_id)
         .bind(&item.name)
-        .bind(&item.sort_name)
-        .bind(&item.original_title)
-        .bind(item.premiere_date.map(|d| d.to_rfc3339()))
-        .bind(item.community_rating)
-        .bind(item.runtime_ticks)
-        .bind(item.production_year)
-        .bind(item.index_number)
-        .bind(item.parent_index_number)
-        .bind(&item.item_type)
-        .bind(item.date_created.to_rfc3339())
-        .bind(item.date_modified.to_rfc3339())
+        .bind(item.votes)
+        .bind(item.year)
+        .bind(&item.genre)
+        .bind(item.rating)
+        .bind(item.nfotime)
+        .bind(item.firstvideo)
+        .bind(item.lastvideo)
         .execute(&self.pool)
         .await?;
         Ok(())

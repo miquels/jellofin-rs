@@ -27,20 +27,14 @@ pub struct AccessToken {
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct Item {
     pub id: String,
-    pub parent_id: Option<String>,
-    pub collection_id: String,
     pub name: String,
-    pub sort_name: Option<String>,
-    pub original_title: Option<String>,
-    pub premiere_date: Option<DateTime<Utc>>,
-    pub community_rating: Option<f64>,
-    pub runtime_ticks: Option<i64>,
-    pub production_year: Option<i32>,
-    pub index_number: Option<i32>,
-    pub parent_index_number: Option<i32>,
-    pub item_type: String,
-    pub date_created: DateTime<Utc>,
-    pub date_modified: DateTime<Utc>,
+    pub votes: Option<i32>,
+    pub year: Option<i32>,
+    pub genre: String,
+    pub rating: Option<f32>,
+    pub nfotime: i64,
+    pub firstvideo: i64,
+    pub lastvideo: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
