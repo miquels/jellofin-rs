@@ -318,6 +318,8 @@ pub struct MediaSourceInfo {
     pub media_streams: Option<Vec<MediaStream>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_audio_stream_index: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub direct_stream_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

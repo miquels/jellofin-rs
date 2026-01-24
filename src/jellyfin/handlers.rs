@@ -603,6 +603,7 @@ pub async fn get_playback_info(
                         supports_transcoding: false,
                         media_streams: Some(vec![]),
                         default_audio_stream_index: Some(1),
+                        direct_stream_url: Some(format!("/Videos/{}/stream", item_id)),
                     }
                 })
                 .collect();
@@ -642,6 +643,7 @@ pub async fn get_playback_info(
                                     supports_transcoding: false,
                                     media_streams: Some(vec![]),
                                     default_audio_stream_index: Some(1),
+                                    direct_stream_url: Some(format!("/Videos/{}/stream", item_id)),
                                 }
                             })
                             .collect();
@@ -840,6 +842,7 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
                 },
             ]),
             default_audio_stream_index: Some(1),
+            direct_stream_url: Some(format!("/Videos/{}-source-{}/stream", item_id, i)),
         }
     }).collect())
 }
