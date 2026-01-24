@@ -24,6 +24,7 @@ pub struct GoShowDetail {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rating: Option<f64>,
     pub genre: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub year: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "seasonAllBanner")]
@@ -159,5 +160,6 @@ pub struct GoItemSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rating: Option<f64>,
     pub genre: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub year: Option<i32>,
 }

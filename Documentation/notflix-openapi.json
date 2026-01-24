@@ -412,8 +412,7 @@
           },
           "year": {
             "type": "integer",
-            "nullable": true,
-            "description": "Production year"
+            "description": "Production year (omitted if not available)"
           }
         }
       },
@@ -485,8 +484,7 @@
           },
           "year": {
             "type": "integer",
-            "nullable": true,
-            "description": "Release year"
+            "description": "Release year (omitted if not available)"
           },
           "video": {
             "type": "string",
@@ -572,8 +570,7 @@
           },
           "year": {
             "type": "integer",
-            "nullable": true,
-            "description": "First air year"
+            "description": "First air year (omitted if not available)"
           },
           "seasonAllBanner": {
             "type": "string",
