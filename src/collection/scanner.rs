@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -267,6 +267,12 @@ fn scan_show_dir(dir: &Path, collection_id: &str) -> Option<Show> {
             show.mpaa = metadata.mpaa;
             show.production_year = metadata.year;
             show.premiere_date = metadata.premiered;
+            // Derive year from premiered date if year not explicitly set
+            if show.production_year.is_none() {
+                if let Some(premiered) = show.premiere_date {
+                    show.production_year = Some(premiered.year());
+                }
+            }
             show.genres = metadata.genres;
             show.studios = metadata.studios;
             show.people = metadata.people;

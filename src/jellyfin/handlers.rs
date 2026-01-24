@@ -1026,7 +1026,7 @@ pub fn convert_episode_to_dto(
     server_id: &str,
 ) -> BaseItemDto {
     let mut image_tags = HashMap::new();
-    if episode.images.primary.is_some() {
+    if episode.images.primary.is_some() || episode.images.thumb.is_some() {
         image_tags.insert("Primary".to_string(), episode.id.clone());
     }
     
