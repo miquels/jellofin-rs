@@ -311,6 +311,9 @@ pub struct MediaSourceInfo {
     pub bitrate: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub run_time_ticks: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub etag: Option<String>,
+    pub is_remote: bool,
     pub supports_direct_stream: bool,
     pub supports_direct_play: bool,
     pub supports_transcoding: bool,
