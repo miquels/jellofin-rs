@@ -589,7 +589,7 @@ pub async fn get_playback_info(
                         path: ms.path.to_string_lossy().to_string(),
                         name: filename,
                         source_type: "Default".to_string(),
-                        protocol: Some("File".to_string()),
+                        protocol: Some("Http".to_string()),
                         container: ms.path.extension()
                             .and_then(|e| e.to_str())
                             .unwrap_or("mp4")
@@ -666,7 +666,7 @@ pub async fn get_playback_info(
                                     path: ms.path.to_string_lossy().to_string(),
                                     name: filename,
                                     source_type: "Default".to_string(),
-                                    protocol: Some("File".to_string()),
+                                    protocol: Some("Http".to_string()),
                                     container: ms.path.extension()
                                         .and_then(|e| e.to_str())
                                         .unwrap_or("mp4")
@@ -870,7 +870,7 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
             path: s.path.to_string_lossy().to_string(),
             name: filename,
             source_type: "Default".to_string(),
-            protocol: Some("File".to_string()),
+            protocol: Some("Http".to_string()),
             container: s.container.clone(),
             video_type: Some("VideoFile".to_string()),
             size: Some(s.size as i64),

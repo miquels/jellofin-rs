@@ -150,11 +150,12 @@ async fn stream_with_range(
     let body = Body::from_stream(stream);
     
     let content_range = format!("bytes {}-{}/{}", start, end, file_size);
+    let content_type = get_content_type(&file_path);
     
     Ok((
         StatusCode::PARTIAL_CONTENT,
         [
-            (header::CONTENT_TYPE, "video/x-matroska"),
+            (header::CONTENT_TYPE, content_type),
             (header::CONTENT_LENGTH, &content_length.to_string()),
             (header::CONTENT_RANGE, &content_range),
             (header::ACCEPT_RANGES, "bytes"),
@@ -169,13 +170,24 @@ async fn stream_full_file(file_path: PathBuf, file_size: u64) -> Result<Response
     
     let stream = ReaderStream::new(file);
     let body = Body::from_stream(stream);
+    let content_type = get_content_type(&file_path);
     
     Ok((
         [
-            (header::CONTENT_TYPE, "video/x-matroska"),
+            (header::CONTENT_TYPE, content_type),
             (header::CONTENT_LENGTH, &file_size.to_string()),
             (header::ACCEPT_RANGES, "bytes"),
         ],
         body,
     ).into_response())
+}
+
+fn get_content_type(path: &std::path::Path) -> &'static str {
+    match path.extension().and_then(|e| e.to_str()) {
+        Some("mp4") | Some("m4v") => "video/mp4",
+        Some("webm") => "video/webm",
+        Some("avi") => "video/x-msvideo",
+        Some("mov") => "video/quicktime",
+        _ => "video/x-matroska",
+    }
 }
