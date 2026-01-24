@@ -71,6 +71,7 @@ pub async fn add_cors_headers(req: Request, next: Next) -> Response {
     headers.insert("Access-Control-Allow-Headers", "Content-Type, Authorization, Range, x-playback-session-id".parse().unwrap());
     headers.insert("Access-Control-Expose-Headers", "ETag, Content-Length, Content-Range".parse().unwrap());
     headers.insert("Cache-Control", "max-age=600".parse().unwrap());
+    headers.insert("Vary", "Origin".parse().unwrap());
     
     response
 }
