@@ -579,23 +579,38 @@ pub async fn get_playback_info(
     for collection in state.collections.list_collections().await {
         if let Some(movie) = collection.movies.get(&item_id) {
             let sources = movie.media_sources.iter()
-                .map(|ms| MediaSourceInfo {
-                    id: item_id.clone(),
-                    path: ms.path.to_string_lossy().to_string(),
-                    protocol: Some("File".to_string()),
-                    container: ms.path.extension()
-                        .and_then(|e| e.to_str())
-                        .unwrap_or("mkv")
-                        .to_string(),
-                    size: Some(ms.size as i64),
-                    supports_direct_stream: true,
-                    supports_direct_play: true,
-                    supports_transcoding: false,
-                    media_streams: Some(vec![]),
+                .map(|ms| {
+                    let filename = ms.path.file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("video.mp4")
+                        .to_string();
+                    MediaSourceInfo {
+                        id: item_id.clone(),
+                        path: ms.path.to_string_lossy().to_string(),
+                        name: filename,
+                        source_type: "Default".to_string(),
+                        protocol: Some("File".to_string()),
+                        container: ms.path.extension()
+                            .and_then(|e| e.to_str())
+                            .unwrap_or("mkv")
+                            .to_string(),
+                        video_type: Some("VideoFile".to_string()),
+                        size: Some(ms.size as i64),
+                        bitrate: ms.bitrate.map(|b| b as i32),
+                        run_time_ticks: movie.runtime_ticks,
+                        supports_direct_stream: true,
+                        supports_direct_play: true,
+                        supports_transcoding: false,
+                        media_streams: Some(vec![]),
+                        default_audio_stream_index: Some(1),
+                    }
                 })
                 .collect();
             
-            return Ok(Json(PlaybackInfoResponse { media_sources: sources }));
+            return Ok(Json(PlaybackInfoResponse { 
+                media_sources: sources,
+                play_session_id: "e3a869b7a901f8894de8ee65688db6c0".to_string(),
+            }));
         }
         
         for show in collection.shows.values() {
@@ -603,23 +618,38 @@ pub async fn get_playback_info(
                 for episode in season.episodes.values() {
                     if episode.id == item_id {
                         let sources = episode.media_sources.iter()
-                            .map(|ms| MediaSourceInfo {
-                                id: item_id.clone(),
-                                path: ms.path.to_string_lossy().to_string(),
-                                protocol: Some("File".to_string()),
-                                container: ms.path.extension()
-                                    .and_then(|e| e.to_str())
-                                    .unwrap_or("mkv")
-                                    .to_string(),
-                                size: Some(ms.size as i64),
-                                supports_direct_stream: true,
-                                supports_direct_play: true,
-                                supports_transcoding: false,
-                                media_streams: Some(vec![]),
+                            .map(|ms| {
+                                let filename = ms.path.file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("video.mp4")
+                                    .to_string();
+                                MediaSourceInfo {
+                                    id: item_id.clone(),
+                                    path: ms.path.to_string_lossy().to_string(),
+                                    name: filename,
+                                    source_type: "Default".to_string(),
+                                    protocol: Some("File".to_string()),
+                                    container: ms.path.extension()
+                                        .and_then(|e| e.to_str())
+                                        .unwrap_or("mkv")
+                                        .to_string(),
+                                    video_type: Some("VideoFile".to_string()),
+                                    size: Some(ms.size as i64),
+                                    bitrate: ms.bitrate.map(|b| b as i32),
+                                    run_time_ticks: episode.runtime_ticks,
+                                    supports_direct_stream: true,
+                                    supports_direct_play: true,
+                                    supports_transcoding: false,
+                                    media_streams: Some(vec![]),
+                                    default_audio_stream_index: Some(1),
+                                }
                             })
                             .collect();
                         
-                        return Ok(Json(PlaybackInfoResponse { media_sources: sources }));
+                        return Ok(Json(PlaybackInfoResponse { 
+                            media_sources: sources,
+                            play_session_id: "e3a869b7a901f8894de8ee65688db6c0".to_string(),
+                        }));
                     }
                 }
             }
@@ -754,51 +784,63 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
         return None;
     }
     
-    Some(sources.iter().enumerate().map(|(i, s)| MediaSourceInfo {
-        id: format!("{}-source-{}", item_id, i),
-        path: s.path.to_string_lossy().to_string(),
-        protocol: Some("File".to_string()),
-        container: s.container.clone(),
-        size: Some(s.size as i64),
-        supports_direct_stream: true,
-        supports_direct_play: true,
-        supports_transcoding: true,
-        media_streams: Some(vec![
-            crate::jellyfin::types::MediaStream {
-                stream_type: "Video".to_string(),
-                codec: "h264".to_string(),
-                language: None,
-                index: Some(0),
-                width: Some(1920),
-                height: Some(1080),
-                bit_rate: Some(5000000),
-                is_default: Some(true),
-                codec_tag: Some("avc1".to_string()),
-                aspect_ratio: Some("16:9".to_string()),
-                profile: Some("High".to_string()),
-                time_base: Some("1/1000".to_string()),
-                ref_frames: Some(1),
-                is_anamorphic: Some(false),
-                bit_depth: Some(8),
-            },
-            crate::jellyfin::types::MediaStream {
-                stream_type: "Audio".to_string(),
-                codec: "aac".to_string(),
-                language: None,
-                index: Some(1),
-                width: None,
-                height: None,
-                bit_rate: Some(192000),
-                is_default: Some(true),
-                codec_tag: Some("mp4a".to_string()),
-                aspect_ratio: None,
-                profile: Some("LC".to_string()),
-                time_base: Some("1/48000".to_string()),
-                ref_frames: None,
-                is_anamorphic: None,
-                bit_depth: None,
-            },
-        ]),
+    Some(sources.iter().enumerate().map(|(i, s)| {
+        let filename = s.path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("video.mp4")
+            .to_string();
+        MediaSourceInfo {
+            id: format!("{}-source-{}", item_id, i),
+            path: s.path.to_string_lossy().to_string(),
+            name: filename,
+            source_type: "Default".to_string(),
+            protocol: Some("File".to_string()),
+            container: s.container.clone(),
+            video_type: Some("VideoFile".to_string()),
+            size: Some(s.size as i64),
+            bitrate: s.bitrate.map(|b| b as i32),
+            run_time_ticks: None,
+            supports_direct_stream: true,
+            supports_direct_play: true,
+            supports_transcoding: true,
+            media_streams: Some(vec![
+                crate::jellyfin::types::MediaStream {
+                    stream_type: "Video".to_string(),
+                    codec: "h264".to_string(),
+                    language: None,
+                    index: Some(0),
+                    width: Some(1920),
+                    height: Some(1080),
+                    bit_rate: Some(5000000),
+                    is_default: Some(true),
+                    codec_tag: Some("avc1".to_string()),
+                    aspect_ratio: Some("16:9".to_string()),
+                    profile: Some("High".to_string()),
+                    time_base: Some("1/1000".to_string()),
+                    ref_frames: Some(1),
+                    is_anamorphic: Some(false),
+                    bit_depth: Some(8),
+                },
+                crate::jellyfin::types::MediaStream {
+                    stream_type: "Audio".to_string(),
+                    codec: "aac".to_string(),
+                    language: None,
+                    index: Some(1),
+                    width: None,
+                    height: None,
+                    bit_rate: Some(192000),
+                    is_default: Some(true),
+                    codec_tag: Some("mp4a".to_string()),
+                    aspect_ratio: None,
+                    profile: Some("LC".to_string()),
+                    time_base: Some("1/48000".to_string()),
+                    ref_frames: None,
+                    is_anamorphic: None,
+                    bit_depth: None,
+                },
+            ]),
+            default_audio_stream_index: Some(1),
+        }
     }).collect())
 }
 

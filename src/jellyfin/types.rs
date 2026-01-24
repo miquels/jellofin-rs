@@ -297,16 +297,27 @@ pub struct UserItemData {
 pub struct MediaSourceInfo {
     pub id: String,
     pub path: String,
+    pub name: String,
+    #[serde(rename = "Type")]
+    pub source_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub protocol: Option<String>,
     pub container: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bitrate: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_time_ticks: Option<i64>,
     pub supports_direct_stream: bool,
     pub supports_direct_play: bool,
     pub supports_transcoding: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_streams: Option<Vec<MediaStream>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_audio_stream_index: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -354,6 +365,7 @@ pub struct QueryResult<T> {
 #[serde(rename_all = "PascalCase")]
 pub struct PlaybackInfoResponse {
     pub media_sources: Vec<MediaSourceInfo>,
+    pub play_session_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
