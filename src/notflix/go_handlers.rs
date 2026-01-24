@@ -40,20 +40,40 @@ pub async fn get_item_go(
             id: movie.id.clone(),
             name: movie.name.clone(),
             path: urlencoding::encode(&movie.name).to_string(),
-            baseurl: collection.base_url.clone().unwrap_or_default(),
+            baseurl: format!("/data/{}", collection_id),
             item_type: "movie".to_string(),
             firstvideo: movie.date_created.timestamp_millis(),
             lastvideo: movie.date_modified.timestamp_millis(),
             sort_name: movie.sort_name.clone().unwrap_or_else(|| make_sort_name(&movie.name)),
             nfo: GoNfo {
                 id: movie.id.clone(),
-                title: movie.original_title.clone().unwrap_or_else(|| movie.name.clone()),
+                title: movie.name.clone(),
                 plot: movie.overview.clone(),
                 premiered: movie.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
                 mpaa: movie.mpaa.clone(),
                 aired: movie.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
                 studio: movie.studios.first().cloned(),
                 rating: movie.community_rating,
+                runtime: movie.runtime_ticks.map(|t| (t / 600_000_000).to_string()),
+                year: movie.production_year,
+                originaltitle: movie.original_title.clone(),
+                genre: if movie.genres.is_empty() { None } else { Some(movie.genres.clone()) },
+                actor: if movie.people.is_empty() {
+                    None
+                } else {
+                    Some(movie.people.iter()
+                        .filter(|p| matches!(p.person_type, crate::collection::PersonType::Actor))
+                        .map(|p| GoActor {
+                            name: p.name.clone(),
+                            role: p.role.clone(),
+                        })
+                        .collect())
+                },
+                director: movie.people.iter()
+                    .find(|p| matches!(p.person_type, crate::collection::PersonType::Director))
+                    .map(|p| p.name.clone()),
+                thumb: None,
+                fanart: None,
             },
             fanart: movie.images.backdrop.as_ref().map(|_| "fanart.jpg".to_string()),
             poster: poster_filename,
@@ -154,7 +174,7 @@ pub async fn get_item_go(
             id: show.id.clone(),
             name: show.name.clone(),
             path: urlencoding::encode(&show.name).to_string(),
-            baseurl: collection.base_url.clone().unwrap_or_default(),
+            baseurl: format!("/data/{}", collection_id),
             item_type: "show".to_string(),
             firstvideo: first_video,
             lastvideo: last_video,
@@ -168,6 +188,26 @@ pub async fn get_item_go(
                 aired: show.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
                 studio: show.studios.first().cloned(),
                 rating: show.community_rating,
+                runtime: None,
+                year: show.production_year,
+                originaltitle: None,
+                genre: if show.genres.is_empty() { None } else { Some(show.genres.clone()) },
+                actor: if show.people.is_empty() {
+                    None
+                } else {
+                    Some(show.people.iter()
+                        .filter(|p| matches!(p.person_type, crate::collection::PersonType::Actor))
+                        .map(|p| GoActor {
+                            name: p.name.clone(),
+                            role: p.role.clone(),
+                        })
+                        .collect())
+                },
+                director: show.people.iter()
+                    .find(|p| matches!(p.person_type, crate::collection::PersonType::Director))
+                    .map(|p| p.name.clone()),
+                thumb: None,
+                fanart: None,
             },
             fanart: show.images.backdrop.as_ref().map(|_| "fanart.jpg".to_string()),
             poster: show.images.primary.as_ref().map(|_| "poster.jpg".to_string()),
@@ -201,21 +241,12 @@ pub async fn get_collection_items_go(
             id: movie.id.clone(),
             name: movie.name.clone(),
             path: urlencoding::encode(&movie.name).to_string(),
-            baseurl: collection.base_url.clone().unwrap_or_default(),
+            baseurl: format!("/data/{}", collection_id),
             item_type: "movie".to_string(),
             firstvideo: movie.date_created.timestamp_millis(),
             lastvideo: movie.date_modified.timestamp_millis(),
             sort_name: movie.sort_name.clone().unwrap_or_else(|| make_sort_name(&movie.name)),
-            nfo: GoNfo {
-                id: movie.id.clone(),
-                title: movie.original_title.clone().unwrap_or_else(|| movie.name.clone()),
-                plot: movie.overview.clone(),
-                premiered: movie.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
-                mpaa: movie.mpaa.clone(),
-                aired: movie.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
-                studio: movie.studios.first().cloned(),
-                rating: movie.community_rating,
-            },
+            banner: None,
             fanart: movie.images.backdrop.as_ref().map(|_| "fanart.jpg".to_string()),
             poster: movie.images.primary.as_ref()
                 .and_then(|p| p.file_name())
@@ -223,8 +254,6 @@ pub async fn get_collection_items_go(
             rating: movie.community_rating,
             genre: movie.genres.clone(),
             year: movie.production_year,
-            season_all_banner: None,
-            season_all_poster: None,
         });
     }
     
@@ -255,28 +284,17 @@ pub async fn get_collection_items_go(
             id: show.id.clone(),
             name: show.name.clone(),
             path: urlencoding::encode(&show.name).to_string(),
-            baseurl: collection.base_url.clone().unwrap_or_default(),
+            baseurl: format!("/data/{}", collection_id),
             item_type: "show".to_string(),
             firstvideo: first_video,
             lastvideo: last_video,
             sort_name: show.sort_name.clone().unwrap_or_else(|| make_sort_name(&show.name)),
-            nfo: GoNfo {
-                id: show.id.clone(),
-                title: show.name.clone(),
-                plot: show.overview.clone(),
-                premiered: show.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
-                mpaa: None,
-                aired: show.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
-                studio: show.studios.first().cloned(),
-                rating: show.community_rating,
-            },
+            banner: show.images.banner.as_ref().map(|_| "banner.jpg".to_string()),
             fanart: show.images.backdrop.as_ref().map(|_| "fanart.jpg".to_string()),
             poster: show.images.primary.as_ref().map(|_| "poster.jpg".to_string()),
             rating: show.community_rating,
             genre: show.genres.clone(),
             year: show.production_year,
-            season_all_banner: show.images.banner.as_ref().map(|_| "season-all-banner.jpg".to_string()),
-            season_all_poster: show.images.primary.as_ref().map(|_| "season-all-poster.jpg".to_string()),
         });
     }
     

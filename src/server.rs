@@ -122,6 +122,7 @@ pub fn build_router(state: AppState) -> Router {
     router
         .layer(axum::middleware::from_fn(crate::middleware::normalize_path))
         .layer(axum::middleware::from_fn(crate::middleware::log_request))
+        .layer(axum::middleware::from_fn(crate::middleware::add_cors_headers))
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .with_state(state)

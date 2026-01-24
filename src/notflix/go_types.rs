@@ -76,6 +76,34 @@ pub struct GoNfo {
     pub studio: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rating: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub year: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub originaltitle: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub genre: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor: Option<Vec<GoActor>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub director: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thumb: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fanart: Option<Vec<GoFanartItem>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoActor {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoFanartItem {
+    pub thumb: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,7 +149,8 @@ pub struct GoItemSummary {
     pub lastvideo: i64,
     #[serde(rename = "sortName")]
     pub sort_name: String,
-    pub nfo: GoNfo,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub banner: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fanart: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -131,10 +160,4 @@ pub struct GoItemSummary {
     pub genre: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub year: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "seasonAllBanner")]
-    pub season_all_banner: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "seasonAllPoster")]
-    pub season_all_poster: Option<String>,
 }

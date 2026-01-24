@@ -47,3 +47,15 @@ pub async fn log_request(req: Request, next: Next) -> Response {
     
     next.run(req).await
 }
+
+pub async fn add_cors_headers(req: Request, next: Next) -> Response {
+    let mut response = next.run(req).await;
+    
+    let headers = response.headers_mut();
+    headers.insert("Access-Control-Allow-Origin", "*".parse().unwrap());
+    headers.insert("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS".parse().unwrap());
+    headers.insert("Access-Control-Allow-Headers", "Content-Type, Authorization, Range, x-playback-session-id".parse().unwrap());
+    headers.insert("Access-Control-Expose-Headers", "ETag, Content-Length, Content-Range".parse().unwrap());
+    
+    response
+}
