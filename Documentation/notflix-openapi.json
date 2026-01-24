@@ -1,0 +1,907 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Notflix API",
+    "description": "A lightweight media server API for browsing and streaming movies and TV shows",
+    "version": "1.0.0",
+    "contact": {
+      "name": "Notflix API"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "API base path"
+    }
+  ],
+  "paths": {
+    "/collections": {
+      "get": {
+        "summary": "List all collections",
+        "description": "Returns a list of all available media collections",
+        "operationId": "listCollections",
+        "tags": ["Collections"],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CollectionInfo"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/collection/{id}": {
+      "get": {
+        "summary": "Get collection details",
+        "description": "Returns information about a specific collection",
+        "operationId": "getCollection",
+        "tags": ["Collections"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Collection ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionInfo"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Collection not found"
+          }
+        }
+      }
+    },
+    "/collection/{id}/genres": {
+      "get": {
+        "summary": "Get collection genres",
+        "description": "Returns a list of genres in the collection with item counts",
+        "operationId": "getCollectionGenres",
+        "tags": ["Collections"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Collection ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GenreCount"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Collection not found"
+          }
+        }
+      }
+    },
+    "/collection/{id}/items": {
+      "get": {
+        "summary": "List collection items",
+        "description": "Returns a list of movies and TV shows in the collection",
+        "operationId": "getCollectionItems",
+        "tags": ["Collections", "Items"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Collection ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "genre",
+            "in": "query",
+            "required": false,
+            "description": "Filter by genre",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ItemSummary"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Collection not found"
+          }
+        }
+      }
+    },
+    "/collection/{coll_id}/item/{item_id}": {
+      "get": {
+        "summary": "Get item details",
+        "description": "Returns detailed information about a movie or TV show",
+        "operationId": "getItem",
+        "tags": ["Items"],
+        "parameters": [
+          {
+            "name": "coll_id",
+            "in": "path",
+            "required": true,
+            "description": "Collection ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "description": "Item ID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/MovieDetail"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ShowDetail"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Item not found"
+          }
+        }
+      }
+    },
+    "/data/{source}/{path}": {
+      "get": {
+        "summary": "Serve media file",
+        "description": "Serves video files, subtitles, and images from the collection. Supports image resizing and HLS proxy.",
+        "operationId": "serveDataFile",
+        "tags": ["Media"],
+        "parameters": [
+          {
+            "name": "source",
+            "in": "path",
+            "required": true,
+            "description": "Collection ID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "path",
+            "required": true,
+            "description": "File path within the collection",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "required": false,
+            "description": "Resize image to width (images only)",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "height",
+            "in": "query",
+            "required": false,
+            "description": "Resize image to height (images only)",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "required": false,
+            "description": "Image quality 1-100 (images only)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File content",
+            "content": {
+              "video/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/vtt": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/x-subrip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "403": {
+            "description": "Forbidden - path outside collection"
+          },
+          "404": {
+            "description": "File not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CollectionInfo": {
+        "type": "object",
+        "required": ["id", "name", "type", "path"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique collection identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Collection name"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["movies", "shows"],
+            "description": "Collection type"
+          },
+          "path": {
+            "type": "string",
+            "description": "Filesystem path to collection"
+          }
+        }
+      },
+      "GenreCount": {
+        "type": "object",
+        "required": ["genre", "count"],
+        "properties": {
+          "genre": {
+            "type": "string",
+            "description": "Genre name"
+          },
+          "count": {
+            "type": "integer",
+            "description": "Number of items in this genre"
+          }
+        }
+      },
+      "ItemSummary": {
+        "type": "object",
+        "required": ["id", "name", "path", "baseurl", "type", "firstvideo", "lastvideo", "sortName", "genre"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique item identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Item name/title"
+          },
+          "path": {
+            "type": "string",
+            "description": "URL-encoded item path"
+          },
+          "baseurl": {
+            "type": "string",
+            "description": "Base URL for media files (e.g., /data/1)",
+            "example": "/data/1"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["movie", "show"],
+            "description": "Item type"
+          },
+          "firstvideo": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp of first video file (milliseconds)"
+          },
+          "lastvideo": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp of last video file (milliseconds)"
+          },
+          "sortName": {
+            "type": "string",
+            "description": "Name for sorting (articles removed)"
+          },
+          "banner": {
+            "type": "string",
+            "nullable": true,
+            "description": "Banner image filename (shows only)"
+          },
+          "fanart": {
+            "type": "string",
+            "nullable": true,
+            "description": "Fanart/backdrop image filename"
+          },
+          "poster": {
+            "type": "string",
+            "nullable": true,
+            "description": "Poster image filename"
+          },
+          "rating": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "Community rating (0-10)"
+          },
+          "genre": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of genres"
+          },
+          "year": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Production year"
+          }
+        }
+      },
+      "MovieDetail": {
+        "type": "object",
+        "required": ["id", "name", "path", "baseurl", "type", "firstvideo", "lastvideo", "sortName", "nfo", "genre", "video"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique movie identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Movie title"
+          },
+          "path": {
+            "type": "string",
+            "description": "URL-encoded movie path"
+          },
+          "baseurl": {
+            "type": "string",
+            "description": "Base URL for media files",
+            "example": "/data/1"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["movie"],
+            "description": "Item type"
+          },
+          "firstvideo": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp of video file (milliseconds)"
+          },
+          "lastvideo": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp of video file (milliseconds)"
+          },
+          "sortName": {
+            "type": "string",
+            "description": "Name for sorting"
+          },
+          "nfo": {
+            "$ref": "#/components/schemas/MovieNfo"
+          },
+          "fanart": {
+            "type": "string",
+            "nullable": true,
+            "description": "Fanart image filename"
+          },
+          "poster": {
+            "type": "string",
+            "nullable": true,
+            "description": "Poster image filename"
+          },
+          "rating": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "Community rating"
+          },
+          "genre": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of genres"
+          },
+          "year": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Release year"
+          },
+          "video": {
+            "type": "string",
+            "description": "Video filename"
+          },
+          "thumb": {
+            "type": "string",
+            "nullable": true,
+            "description": "Thumbnail image filename"
+          }
+        }
+      },
+      "ShowDetail": {
+        "type": "object",
+        "required": ["id", "name", "path", "baseurl", "type", "firstvideo", "lastvideo", "sortName", "nfo", "genre", "seasons"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique show identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Show title"
+          },
+          "path": {
+            "type": "string",
+            "description": "URL-encoded show path"
+          },
+          "baseurl": {
+            "type": "string",
+            "description": "Base URL for media files",
+            "example": "/data/2"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["show"],
+            "description": "Item type"
+          },
+          "firstvideo": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp of first episode (milliseconds)"
+          },
+          "lastvideo": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Timestamp of last episode (milliseconds)"
+          },
+          "sortName": {
+            "type": "string",
+            "description": "Name for sorting"
+          },
+          "nfo": {
+            "$ref": "#/components/schemas/ShowNfo"
+          },
+          "banner": {
+            "type": "string",
+            "nullable": true,
+            "description": "Banner image filename"
+          },
+          "fanart": {
+            "type": "string",
+            "nullable": true,
+            "description": "Fanart image filename"
+          },
+          "poster": {
+            "type": "string",
+            "nullable": true,
+            "description": "Poster image filename"
+          },
+          "rating": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "Community rating"
+          },
+          "genre": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of genres"
+          },
+          "year": {
+            "type": "integer",
+            "nullable": true,
+            "description": "First air year"
+          },
+          "seasonAllBanner": {
+            "type": "string",
+            "nullable": true,
+            "description": "All seasons banner filename"
+          },
+          "seasonAllPoster": {
+            "type": "string",
+            "nullable": true,
+            "description": "All seasons poster filename"
+          },
+          "seasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SeasonInfo"
+            },
+            "description": "TV show seasons"
+          }
+        }
+      },
+      "MovieNfo": {
+        "type": "object",
+        "required": ["id", "title"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Movie ID"
+          },
+          "title": {
+            "type": "string",
+            "description": "Movie title"
+          },
+          "plot": {
+            "type": "string",
+            "nullable": true,
+            "description": "Plot summary"
+          },
+          "premiered": {
+            "type": "string",
+            "nullable": true,
+            "description": "Premiere date (YYYY-MM-DD)"
+          },
+          "mpaa": {
+            "type": "string",
+            "nullable": true,
+            "description": "MPAA rating (e.g., R, PG-13)"
+          },
+          "aired": {
+            "type": "string",
+            "nullable": true,
+            "description": "Air date (YYYY-MM-DD)"
+          },
+          "studio": {
+            "type": "string",
+            "nullable": true,
+            "description": "Production studio"
+          },
+          "rating": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "Community rating"
+          },
+          "runtime": {
+            "type": "string",
+            "nullable": true,
+            "description": "Runtime in minutes"
+          },
+          "year": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Release year"
+          },
+          "originaltitle": {
+            "type": "string",
+            "nullable": true,
+            "description": "Original title"
+          },
+          "genre": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "description": "List of genres"
+          },
+          "actor": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActorInfo"
+            },
+            "nullable": true,
+            "description": "Cast members"
+          },
+          "director": {
+            "type": "string",
+            "nullable": true,
+            "description": "Director name"
+          },
+          "thumb": {
+            "type": "string",
+            "nullable": true,
+            "description": "Thumbnail URL (TMDB)"
+          },
+          "fanart": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FanartInfo"
+            },
+            "nullable": true,
+            "description": "Fanart URLs (TMDB)"
+          }
+        }
+      },
+      "ShowNfo": {
+        "type": "object",
+        "required": ["id", "title"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Show ID"
+          },
+          "title": {
+            "type": "string",
+            "description": "Show title"
+          },
+          "plot": {
+            "type": "string",
+            "nullable": true,
+            "description": "Show summary"
+          },
+          "premiered": {
+            "type": "string",
+            "nullable": true,
+            "description": "Premiere date (YYYY-MM-DD)"
+          },
+          "mpaa": {
+            "type": "string",
+            "nullable": true,
+            "description": "Content rating (e.g., TV-MA, TV-14)"
+          },
+          "aired": {
+            "type": "string",
+            "nullable": true,
+            "description": "Air date (YYYY-MM-DD)"
+          },
+          "studio": {
+            "type": "string",
+            "nullable": true,
+            "description": "Production studio"
+          },
+          "rating": {
+            "type": "number",
+            "format": "float",
+            "nullable": true,
+            "description": "Community rating"
+          },
+          "runtime": {
+            "type": "string",
+            "nullable": true,
+            "description": "Episode runtime in minutes"
+          },
+          "year": {
+            "type": "integer",
+            "nullable": true,
+            "description": "First air year"
+          },
+          "originaltitle": {
+            "type": "string",
+            "nullable": true,
+            "description": "Original title"
+          },
+          "genre": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true,
+            "description": "List of genres"
+          },
+          "actor": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActorInfo"
+            },
+            "nullable": true,
+            "description": "Cast members"
+          },
+          "director": {
+            "type": "string",
+            "nullable": true,
+            "description": "Director name"
+          },
+          "thumb": {
+            "type": "string",
+            "nullable": true,
+            "description": "Thumbnail URL (TMDB)"
+          },
+          "fanart": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FanartInfo"
+            },
+            "nullable": true,
+            "description": "Fanart URLs (TMDB)"
+          }
+        }
+      },
+      "ActorInfo": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Actor name"
+          },
+          "role": {
+            "type": "string",
+            "nullable": true,
+            "description": "Character name"
+          }
+        }
+      },
+      "FanartInfo": {
+        "type": "object",
+        "required": ["thumb"],
+        "properties": {
+          "thumb": {
+            "type": "string",
+            "description": "Fanart image URL"
+          }
+        }
+      },
+      "SeasonInfo": {
+        "type": "object",
+        "required": ["seasonno", "episodes"],
+        "properties": {
+          "seasonno": {
+            "type": "integer",
+            "description": "Season number"
+          },
+          "poster": {
+            "type": "string",
+            "nullable": true,
+            "description": "Season poster filename"
+          },
+          "episodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EpisodeInfo"
+            },
+            "description": "Episodes in this season"
+          }
+        }
+      },
+      "EpisodeInfo": {
+        "type": "object",
+        "required": ["name", "seasonno", "episodeno", "nfo", "video"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Episode identifier (e.g., 01x01)",
+            "example": "01x01"
+          },
+          "seasonno": {
+            "type": "integer",
+            "description": "Season number"
+          },
+          "episodeno": {
+            "type": "integer",
+            "description": "Episode number"
+          },
+          "nfo": {
+            "$ref": "#/components/schemas/EpisodeNfo"
+          },
+          "video": {
+            "type": "string",
+            "description": "Video file path relative to show directory"
+          },
+          "thumb": {
+            "type": "string",
+            "nullable": true,
+            "description": "Thumbnail file path relative to show directory"
+          }
+        }
+      },
+      "EpisodeNfo": {
+        "type": "object",
+        "required": ["title", "season", "episode"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Episode title"
+          },
+          "plot": {
+            "type": "string",
+            "nullable": true,
+            "description": "Episode summary"
+          },
+          "season": {
+            "type": "string",
+            "description": "Season number as string"
+          },
+          "episode": {
+            "type": "string",
+            "description": "Episode number as string"
+          },
+          "aired": {
+            "type": "string",
+            "nullable": true,
+            "description": "Air date (YYYY-MM-DD)"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Collections",
+      "description": "Operations for browsing media collections"
+    },
+    {
+      "name": "Items",
+      "description": "Operations for accessing movies and TV shows"
+    },
+    {
+      "name": "Media",
+      "description": "Operations for streaming video and serving images"
+    }
+  ]
+}
