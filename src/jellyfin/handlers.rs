@@ -690,7 +690,20 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
         size: Some(s.size as i64),
         supports_direct_stream: true,
         supports_transcoding: true,
-        media_streams: None,
+        media_streams: Some(vec![
+            crate::jellyfin::types::MediaStream {
+                stream_type: "Video".to_string(),
+                codec: "h264".to_string(),
+                language: None,
+                index: Some(0),
+            },
+            crate::jellyfin::types::MediaStream {
+                stream_type: "Audio".to_string(),
+                codec: "aac".to_string(),
+                language: None,
+                index: Some(1),
+            },
+        ]),
     }).collect())
 }
 
