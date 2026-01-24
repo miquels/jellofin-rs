@@ -144,6 +144,12 @@ pub struct BaseItemDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub people: Option<Vec<BaseItemPerson>>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub chapters: Option<Vec<Chapter>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_subtitles: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_logo_item_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub series_id: Option<String>,
@@ -233,6 +239,15 @@ pub struct BaseItemPerson {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
+pub struct Chapter {
+    pub start_position_ticks: i64,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image_tag: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct UserItemData {
     pub played: bool,
     pub is_favorite: bool,
@@ -272,6 +287,22 @@ pub struct MediaStream {
     pub height: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bit_rate: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_default: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub codec_tag: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aspect_ratio: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub profile: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_base: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ref_frames: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_anamorphic: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bit_depth: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
