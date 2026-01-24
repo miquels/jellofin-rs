@@ -308,14 +308,33 @@ pub async fn serve_data_file(
         full_path
     };
     
-    
     // Use ServeFile for proper Range header support
-    let service = ServeFile::new(serve_path);
+    let service = ServeFile::new(&serve_path);
 
-    let response = service
+    let mut response = service
         .oneshot(req)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    // Add ETag header based on file metadata
+    if let Ok(metadata) = std::fs::metadata(&serve_path) {
+        use std::time::UNIX_EPOCH;
+        
+        let last_modified = metadata.modified()
+            .unwrap_or(UNIX_EPOCH)
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        
+        let file_size = metadata.len();
+        
+        // Create a unique ETag: "W/size-timestamp"
+        let etag = format!("W/\"{}-{}\"", file_size, last_modified);
+        
+        if let Ok(etag_value) = axum::http::HeaderValue::from_str(&etag) {
+            response.headers_mut().insert(axum::http::header::ETAG, etag_value);
+        }
+    }
     
     Ok(response.map(axum::body::Body::new))
 }
