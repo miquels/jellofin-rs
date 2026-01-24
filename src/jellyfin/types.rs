@@ -266,6 +266,12 @@ pub struct MediaStream {
     pub language: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub height: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bit_rate: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -702,12 +702,18 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
                 codec: "h264".to_string(),
                 language: None,
                 index: Some(0),
+                width: Some(1920),
+                height: Some(1080),
+                bit_rate: Some(5000000),
             },
             crate::jellyfin::types::MediaStream {
                 stream_type: "Audio".to_string(),
                 codec: "aac".to_string(),
                 language: None,
                 index: Some(1),
+                width: None,
+                height: None,
+                bit_rate: Some(192000),
             },
         ]),
     }).collect())
