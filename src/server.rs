@@ -232,7 +232,10 @@ async fn find_image_path(
                 for episode in season.episodes.values() {
                     if &episode.id == item_id {
                         return match image_type.to_lowercase().as_str() {
-                            "primary" => episode.images.primary.clone(),
+                            // For episodes, fall back to thumb if primary is None
+                            // (episode thumbnails are often named with -thumb suffix)
+                            "primary" => episode.images.primary.clone()
+                                .or_else(|| episode.images.thumb.clone()),
                             "backdrop" => episode.images.backdrop.clone(),
                             "logo" => episode.images.logo.clone(),
                             "thumb" => episode.images.thumb.clone(),
