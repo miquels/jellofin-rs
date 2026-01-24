@@ -249,10 +249,17 @@ fn scan_show_dir(dir: &Path, collection_id: &str) -> Option<Show> {
 
     if let Some(nfo_path) = nfo_path {
         if let Some(metadata) = parse_nfo_file(&nfo_path) {
+            // Keep directory name as show.name (matching Go server)
+            // Store NFO title as original_title if different
             if let Some(title) = metadata.title {
-                show.name = title;
+                if title != show_name {
+                    show.original_title = Some(title);
+                }
             }
-            show.original_title = metadata.original_title;
+            // Use NFO original_title only if we haven't set it from title
+            if show.original_title.is_none() {
+                show.original_title = metadata.original_title;
+            }
             show.sort_name = metadata.sort_title;
             show.overview = metadata.plot;
             show.tagline = metadata.tagline;
