@@ -43,24 +43,41 @@ pub async fn log_request(req: Request, next: Next) -> Response {
     let method = req.method().clone();
     let uri = req.uri().clone();
     
+    // Log POST request body for debugging
+    let (parts, body) = req.into_parts();
+    let bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap_or_default();
+    
+    if method == axum::http::Method::POST && !bytes.is_empty() {
+        if let Ok(body_str) = std::str::from_utf8(&bytes) {
+            info!(
+                method = %method,
+                url = %uri,
+                body = %body_str,
+                "POST request"
+            );
+        }
+    }
+    
+    // Reconstruct request with body
+    let req = Request::from_parts(parts, axum::body::Body::from(bytes));
     let response = next.run(req).await;
     
     let status = response.status().as_u16();
-    let content_length = response.headers()
-        .get(axum::http::header::CONTENT_LENGTH)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(0);
+    
+    // Buffer the response to get actual size
+    let (parts, body) = response.into_parts();
+    let bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap_or_default();
+    let length = bytes.len();
     
     info!(
         method = %method,
         url = %uri,
         status = status,
-        length = content_length,
+        length = length,
         "HTTP request"
     );
     
-    response
+    Response::from_parts(parts, axum::body::Body::from(bytes))
 }
 
 pub async fn add_cors_headers(req: Request, next: Next) -> Response {
