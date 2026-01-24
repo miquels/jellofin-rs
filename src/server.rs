@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, Query, Request, State},
     http::{header, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
@@ -106,7 +106,8 @@ pub fn build_router(state: AppState) -> Router {
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             crate::jellyfin::auth_middleware,
-        ));
+        ))
+        .layer(axum::middleware::from_fn(crate::middleware::etag_validation));
     
     let mut router = Router::new()
         .route("/health", get(health_handler))
@@ -114,9 +115,12 @@ pub fn build_router(state: AppState) -> Router {
         .route("/robots.txt", get(robots_txt_handler))
         .route("/Images/:item_id/:image_type", get(image_handler))
         .merge(notflix_routes)
-        .merge(jellyfin_routes);
+        .merge(jellyfin_routes)
+        .fallback(fallback_handler);
 
     if let Some(ref appdir) = state.config.appdir {
+        // Note: ServeDir will override our fallback for file paths, but OPTIONS will still work
+        // because they'll hit our fallback before ServeDir tries to serve
         router = router.fallback_service(ServeDir::new(appdir));
     }
 
@@ -143,6 +147,16 @@ async fn system_ping_handler() -> impl IntoResponse {
 
 async fn robots_txt_handler() -> &'static str {
     "User-agent: *\nDisallow: /\n"
+}
+
+async fn fallback_handler(req: Request<axum::body::Body>) -> impl IntoResponse {
+    // Handle OPTIONS requests for CORS preflight
+    if req.method() == axum::http::Method::OPTIONS {
+        // CORS headers are added by the add_cors_headers middleware
+        return StatusCode::OK.into_response();
+    }
+    // All other unmatched requests get 404
+    StatusCode::NOT_FOUND.into_response()
 }
 
 async fn image_handler(

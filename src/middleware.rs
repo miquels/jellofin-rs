@@ -90,3 +90,65 @@ pub async fn add_cors_headers(req: Request, next: Next) -> Response {
     
     response
 }
+
+pub async fn etag_validation(req: Request, next: Next) -> Response {
+    // Get the If-None-Match header from the request
+    let if_none_match = req.headers()
+        .get(axum::http::header::IF_NONE_MATCH)
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+    
+    let response = next.run(req).await;
+    
+    // If there's an If-None-Match header, check it against the response ETag
+    if let Some(client_etag) = if_none_match {
+        if let Some(response_etag) = response.headers().get(axum::http::header::ETAG) {
+            if let Ok(response_etag_str) = response_etag.to_str() {
+                // Compare ETags (handle both strong and weak ETags)
+                if etags_match(&client_etag, response_etag_str) {
+                    // ETags match - return 304 Not Modified with empty body
+                    let mut not_modified = Response::new(axum::body::Body::empty());
+                    *not_modified.status_mut() = axum::http::StatusCode::NOT_MODIFIED;
+                    
+                    // Copy relevant headers from original response
+                    let headers = not_modified.headers_mut();
+                    if let Some(etag) = response.headers().get(axum::http::header::ETAG) {
+                        headers.insert(axum::http::header::ETAG, etag.clone());
+                    }
+                    if let Some(cache_control) = response.headers().get(axum::http::header::CACHE_CONTROL) {
+                        headers.insert(axum::http::header::CACHE_CONTROL, cache_control.clone());
+                    }
+                    if let Some(vary) = response.headers().get(axum::http::header::VARY) {
+                        headers.insert(axum::http::header::VARY, vary.clone());
+                    }
+                    
+                    return not_modified;
+                }
+            }
+        }
+    }
+    
+    response
+}
+
+fn etags_match(client_etag: &str, server_etag: &str) -> bool {
+    // Handle multiple ETags in If-None-Match (comma-separated)
+    for etag in client_etag.split(',') {
+        let etag = etag.trim();
+        
+        // Check for exact match
+        if etag == server_etag {
+            return true;
+        }
+        
+        // Handle weak ETag comparison (W/"..." matches "...")
+        let client_stripped = etag.strip_prefix("W/").unwrap_or(etag);
+        let server_stripped = server_etag.strip_prefix("W/").unwrap_or(server_etag);
+        
+        if client_stripped == server_stripped {
+            return true;
+        }
+    }
+    
+    false
+}

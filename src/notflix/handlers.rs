@@ -308,8 +308,10 @@ pub async fn serve_data_file(
         full_path
     };
     
-    // Use ServeFile for proper ETag and Range header support
+    
+    // Use ServeFile for proper Range header support
     let service = ServeFile::new(serve_path);
+
     let response = service
         .oneshot(req)
         .await
