@@ -357,6 +357,56 @@ pub async fn get_items(
     })
 }
 
+pub async fn get_episodes(
+    State(state): State<AppState>,
+    Path(show_id): Path<String>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Json<QueryResult<BaseItemDto>>, StatusCode> {
+    let season_id = params.get("SeasonId").or_else(|| params.get("seasonId"));
+    let mut episodes = Vec::new();
+    
+    // Scan all collections for the show
+    let collections = state.collections.list_collections().await;
+    for collection in collections {
+        if let Some(show) = collection.shows.get(&show_id) {
+            if let Some(sid) = season_id {
+                // Return episodes for specific season
+                let sid_int = sid.parse::<i32>().unwrap_or(-1);
+                if let Some(season) = show.seasons.get(&sid_int) {
+                    for episode in season.episodes.values() {
+                        episodes.push(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id));
+                    }
+                }
+            } else {
+                // Return all episodes from all seasons
+                for season in show.seasons.values() {
+                    for episode in season.episodes.values() {
+                        episodes.push(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id));
+                    }
+                }
+            }
+            
+            // Sort episodes: Season Asc, Episode Asc
+            episodes.sort_by(|a, b| {
+                let season_a = a.parent_index_number.unwrap_or(0);
+                let season_b = b.parent_index_number.unwrap_or(0);
+                if season_a != season_b {
+                    season_a.cmp(&season_b)
+                } else {
+                    a.index_number.unwrap_or(0).cmp(&b.index_number.unwrap_or(0))
+                }
+            });
+            
+            return Ok(Json(QueryResult {
+                total_record_count: episodes.len(),
+                items: episodes,
+            }));
+        }
+    }
+    
+    Err(StatusCode::NOT_FOUND)
+}
+
 pub async fn get_item_by_id(
     State(state): State<AppState>,
     Path(item_id): Path<String>,
