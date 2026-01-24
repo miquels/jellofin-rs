@@ -14,6 +14,7 @@ pub struct NfoMetadata {
     pub rating: Option<f64>,
     pub mpaa: Option<String>,
     pub year: Option<i32>,
+    pub runtime: Option<String>,
     pub premiered: Option<DateTime<Utc>>,
     pub genres: Vec<String>,
     pub studios: Vec<String>,
@@ -34,6 +35,7 @@ pub fn parse_nfo_content(content: &str) -> Option<NfoMetadata> {
     metadata.plot = extract_tag(content, "plot").or_else(|| extract_tag(content, "overview"));
     metadata.tagline = extract_tag(content, "tagline");
     metadata.mpaa = extract_tag(content, "mpaa");
+    metadata.runtime = extract_tag(content, "runtime");
     
     if let Some(rating_str) = extract_tag(content, "rating") {
         metadata.rating = rating_str.parse::<f64>().ok();

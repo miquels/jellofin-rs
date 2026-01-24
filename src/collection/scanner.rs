@@ -120,6 +120,12 @@ fn scan_movie_dir(dir: &Path, collection_id: &str) -> Option<Movie> {
             movie.genres = metadata.genres;
             movie.studios = metadata.studios;
             movie.people = metadata.people;
+            // Parse runtime (in minutes) to ticks (100ns units)
+            if let Some(runtime_str) = metadata.runtime {
+                if let Ok(minutes) = runtime_str.parse::<i64>() {
+                    movie.runtime_ticks = Some(minutes * 600_000_000);
+                }
+            }
         }
     }
 
