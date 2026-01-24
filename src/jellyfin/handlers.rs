@@ -537,6 +537,7 @@ pub async fn get_playback_info(
                         .to_string(),
                     size: Some(ms.size as i64),
                     supports_direct_stream: true,
+                    supports_direct_play: true,
                     supports_transcoding: false,
                     media_streams: Some(vec![]),
                 })
@@ -559,6 +560,7 @@ pub async fn get_playback_info(
                                     .to_string(),
                                 size: Some(ms.size as i64),
                                 supports_direct_stream: true,
+                                supports_direct_play: true,
                                 supports_transcoding: false,
                                 media_streams: Some(vec![]),
                             })
@@ -704,6 +706,7 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
         container: s.container.clone(),
         size: Some(s.size as i64),
         supports_direct_stream: true,
+        supports_direct_play: true,
         supports_transcoding: true,
         media_streams: Some(vec![
             crate::jellyfin::types::MediaStream {

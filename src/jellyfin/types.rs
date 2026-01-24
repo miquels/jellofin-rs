@@ -266,6 +266,7 @@ pub struct MediaSourceInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<i64>,
     pub supports_direct_stream: bool,
+    pub supports_direct_play: bool,
     pub supports_transcoding: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_streams: Option<Vec<MediaStream>>,

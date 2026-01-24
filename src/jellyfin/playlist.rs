@@ -77,7 +77,10 @@ pub async fn create_playlist(
     };
     
     state.db.create_playlist(&playlist).await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .map_err(|e| {
+            tracing::error!("Failed to create playlist: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
     
     for item_id in &item_ids {
         let _ = state.db.add_item_to_playlist(&playlist_id, item_id).await;
@@ -256,7 +259,7 @@ fn generate_playlist_id(name: &str) -> String {
     use sha2::{Sha256, Digest};
     
     let mut hasher = Sha256::new();
-    hasher.update(format!("playlist:{}", name).as_bytes());
+    hasher.update(format!("playlist:{}:{}", name, chrono::Utc::now().to_rfc3339()).as_bytes());
     let hash = hasher.finalize();
     
     let mut num = [0u8; 16];
