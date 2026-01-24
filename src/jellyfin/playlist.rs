@@ -21,6 +21,8 @@ pub struct CreatePlaylistRequest {
     pub user_id: Option<String>,
     #[serde(rename = "Ids")]
     pub ids: Option<Vec<String>>,
+    #[serde(rename = "IsPublic")]
+    pub is_public: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -49,26 +51,21 @@ pub struct PlaylistAccess {
 
 pub async fn create_playlist(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
     req: Request<axum::body::Body>,
 ) -> Result<Json<CreatePlaylistResponse>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
     
-    let name = params.get("Name")
-        .cloned()
-        .ok_or(StatusCode::BAD_REQUEST)?;
+    // Parse JSON body
+    let (_parts, body) = req.into_parts();
+    let bytes = axum::body::to_bytes(body, usize::MAX).await
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
     
-    let playlist_user_id = params.get("userId")
-        .cloned()
-        .unwrap_or(user_id.clone());
+    let create_req: CreatePlaylistRequest = serde_json::from_slice(&bytes)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
     
-    let item_ids: Vec<String> = params.get("Ids")
-        .map(|ids| {
-            ids.split(',')
-                .map(|id| id.trim().to_string())
-                .collect()
-        })
-        .unwrap_or_default();
+    let name = create_req.name.ok_or(StatusCode::BAD_REQUEST)?;
+    let playlist_user_id = create_req.user_id.unwrap_or(user_id.clone());
+    let item_ids = create_req.ids.unwrap_or_default();
     
     let playlist_id = generate_playlist_id(&name);
     

@@ -803,3 +803,13 @@ pub fn convert_episode_to_dto(
         provider_ids: None,
     }
 }
+
+pub async fn get_movie_recommendations(
+    State(_state): State<AppState>,
+    Query(_params): Query<HashMap<String, String>>,
+    _req: Request<axum::body::Body>,
+) -> Json<Vec<serde_json::Value>> {
+    // Stub implementation - return empty list
+    // TODO: Implement recommendation engine
+    Json(vec![])
+}
