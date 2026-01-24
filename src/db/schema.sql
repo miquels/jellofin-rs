@@ -69,5 +69,5 @@ CREATE TABLE IF NOT EXISTS playlist_item (
     itemorder INTEGER NOT NULL,
     timestamp DATETIME,
     PRIMARY KEY (playlistid, itemid),
-    FOREIGN KEY (playlistid) REFERENCES playlists(id)
+    FOREIGN KEY (playlistid) REFERENCES playlist(id)
 );

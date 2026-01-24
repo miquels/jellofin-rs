@@ -279,22 +279,31 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
 
 pub async fn get_items(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<Vec<(String, String)>>,
 ) -> Json<QueryResult<BaseItemDto>> {
-    let parent_id = params.get("ParentId").or_else(|| params.get("parentId"));
-    let recursive = params.get("Recursive")
-        .or_else(|| params.get("recursive"))
+    let get_param = |key: &str| params.iter()
+        .find(|(k, _)| k.eq_ignore_ascii_case(key))
+        .map(|(_, v)| v);
+
+    let parent_id = get_param("ParentId");
+    let recursive = get_param("Recursive")
         .and_then(|s| s.parse::<bool>().ok())
         .unwrap_or(false);
-    let limit = params.get("Limit")
-        .or_else(|| params.get("limit"))
+    let limit = get_param("Limit")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(100);
     
-    let include_item_types: Vec<String> = params.get("IncludeItemTypes")
-        .or_else(|| params.get("includeItemTypes"))
-        .map(|types| types.split(',').map(|s| s.trim().to_string()).collect())
-        .unwrap_or_default();
+    let mut include_item_types = Vec::new();
+    for (key, value) in &params {
+        if key.eq_ignore_ascii_case("IncludeItemTypes") {
+            for t in value.split(',') {
+                let t = t.trim();
+                if !t.is_empty() {
+                    include_item_types.push(t.to_string());
+                }
+            }
+        }
+    }
     
     let mut items = Vec::new();
     
