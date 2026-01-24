@@ -386,7 +386,7 @@ fn create_episode(
         community_rating,
         runtime_ticks: None,
         overview,
-        images: ImageInfo::default(),
+        images: find_episode_images(path),
         media_sources: vec![MediaSource {
             path: path.to_path_buf(),
             container: path.extension()?.to_str()?.to_string(),
@@ -433,6 +433,43 @@ fn assign_image(images: &mut ImageInfo, filename: &str, path: PathBuf) {
     } else if images.primary.is_none() {
         images.primary = Some(path);
     }
+}
+
+/// Find thumbnail images for an episode based on video filename.
+/// Looks for images that match the video file's base name (e.g., "Show.S01E01-thumb.jpg" for "Show.S01E01.mkv")
+fn find_episode_images(video_path: &Path) -> ImageInfo {
+    let mut images = ImageInfo::default();
+    
+    let video_stem = match video_path.file_stem().and_then(|s| s.to_str()) {
+        Some(s) => s,
+        None => return images,
+    };
+    
+    let parent = match video_path.parent() {
+        Some(p) => p,
+        None => return images,
+    };
+
+    // Look for images matching video filename patterns:
+    // - video_name.jpg, video_name-thumb.jpg
+    // - video_name-poster.jpg, video_name-fanart.jpg
+    if let Ok(entries) = fs::read_dir(parent) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                if IMAGE_EXTENSIONS.contains(&ext.to_lowercase().as_str()) {
+                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                        // Match images that start with the video filename (exact match or with suffix like -thumb)
+                        if stem == video_stem || stem.starts_with(&format!("{}-", video_stem)) || stem.starts_with(&format!("{}.", video_stem)) {
+                            assign_image(&mut images, stem, path.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    images
 }
 
 fn find_subtitles(video_path: &Path) -> Vec<SubtitleStream> {
