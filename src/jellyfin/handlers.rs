@@ -586,7 +586,7 @@ pub async fn get_playback_info(
                         .to_string();
                     MediaSourceInfo {
                         id: item_id.clone(),
-                        path: ms.path.to_string_lossy().to_string(),
+                        path: format!("/Videos/{}/stream.mp4", item_id),
                         name: filename,
                         source_type: "Default".to_string(),
                         protocol: Some("Http".to_string()),
@@ -663,7 +663,7 @@ pub async fn get_playback_info(
                                     .to_string();
                                     MediaSourceInfo {
                                     id: item_id.clone(),
-                                    path: ms.path.to_string_lossy().to_string(),
+                                    path: format!("/Videos/{}/stream.mp4", item_id),
                                     name: filename,
                                     source_type: "Default".to_string(),
                                     protocol: Some("Http".to_string()),
@@ -867,7 +867,7 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
             .to_string();
         MediaSourceInfo {
             id: format!("{}-source-{}", item_id, i),
-            path: s.path.to_string_lossy().to_string(),
+            path: format!("/Videos/{}-source-{}/stream.mp4", item_id, i),
             name: filename,
             source_type: "Default".to_string(),
             protocol: Some("Http".to_string()),
