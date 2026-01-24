@@ -13,6 +13,7 @@ pub struct AuthenticationRequest {
 #[serde(rename_all = "PascalCase")]
 pub struct AuthenticationResult {
     pub user: UserDto,
+    pub session_info: AuthSessionInfo,
     pub access_token: String,
     pub server_id: String,
 }
@@ -231,4 +232,50 @@ pub struct SearchHint {
     pub item_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub production_year: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct AuthSessionInfo {
+    pub play_state: PlayState,
+    pub additional_users: Vec<serde_json::Value>,
+    pub capabilities: Capabilities,
+    pub remote_end_point: String,
+    pub playable_media_types: Vec<String>,
+    pub id: String,
+    pub user_id: String,
+    pub user_name: String,
+    pub client: String,
+    pub last_activity_date: String,
+    pub last_playback_check_in: String,
+    pub device_name: String,
+    pub device_id: String,
+    pub application_version: String,
+    pub is_active: bool,
+    pub supports_media_control: bool,
+    pub supports_remote_control: bool,
+    pub now_playing_queue: Vec<serde_json::Value>,
+    pub now_playing_queue_full_items: Vec<serde_json::Value>,
+    pub has_custom_device_name: bool,
+    pub server_id: String,
+    pub supported_commands: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PlayState {
+    pub can_seek: bool,
+    pub is_paused: bool,
+    pub is_muted: bool,
+    pub repeat_mode: String,
+    pub playback_order: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Capabilities {
+    pub playable_media_types: Vec<String>,
+    pub supported_commands: Vec<String>,
+    pub supports_media_control: bool,
+    pub supports_persistent_identifier: bool,
 }

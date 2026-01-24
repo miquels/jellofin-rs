@@ -53,6 +53,9 @@ pub async fn authenticate_by_name(
     state.db.upsert_token(&token).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
+    let now = chrono::Utc::now().to_rfc3339();
+    let session_id = "e3a869b7a901f8894de8ee65688db6c0"; // Hardcoded session ID matching Go implementation
+    
     let result = AuthenticationResult {
         user: UserDto {
             name: user.username.clone(),
@@ -65,6 +68,41 @@ pub async fn authenticate_by_name(
                 is_disabled: false,
                 enable_all_folders: true,
             },
+        },
+        session_info: AuthSessionInfo {
+            play_state: PlayState {
+                can_seek: false,
+                is_paused: false,
+                is_muted: false,
+                repeat_mode: "RepeatNone".to_string(),
+                playback_order: "Default".to_string(),
+            },
+            additional_users: vec![],
+            capabilities: Capabilities {
+                playable_media_types: vec![],
+                supported_commands: vec![],
+                supports_media_control: false,
+                supports_persistent_identifier: true,
+            },
+            remote_end_point: String::new(),
+            playable_media_types: vec![],
+            id: session_id.to_string(),
+            user_id: user.id.clone(),
+            user_name: user.username.clone(),
+            client: String::new(),
+            last_activity_date: now.clone(),
+            last_playback_check_in: "0001-01-01T00:00:00Z".to_string(),
+            device_name: String::new(),
+            device_id: String::new(),
+            application_version: String::new(),
+            is_active: true,
+            supports_media_control: false,
+            supports_remote_control: false,
+            now_playing_queue: vec![],
+            now_playing_queue_full_items: vec![],
+            has_custom_device_name: false,
+            server_id: state.config.jellyfin.server_id.clone().unwrap_or_else(|| "jellyfin-rs".to_string()),
+            supported_commands: vec![],
         },
         access_token: token.token.clone(),
         server_id: state.config.jellyfin.server_id.clone().unwrap_or_else(|| "jellyfin-rs".to_string()),
