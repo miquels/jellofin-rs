@@ -4,6 +4,8 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use tower::util::ServiceExt;
+use tower_http::services::ServeFile;
 use std::collections::HashMap;
 use crate::server::AppState;
 use super::types::*;
@@ -253,11 +255,6 @@ pub async fn serve_data_file(
     Query(params): Query<HashMap<String, String>>,
     req: axum::http::Request<axum::body::Body>,
 ) -> Result<Response, StatusCode> {
-    use axum::body::Body;
-    use axum::http::header;
-    use tokio::fs::File;
-    use tokio_util::io::ReaderStream;
-    
     let parts: Vec<&str> = path_parts.split('/').collect();
     if parts.len() < 2 {
         return Err(StatusCode::BAD_REQUEST);
@@ -294,42 +291,31 @@ pub async fn serve_data_file(
     
     let is_image = matches!(
         full_path.extension().and_then(|e| e.to_str()),
-        Some("jpg") | Some("jpeg") | Some("png") | Some("webp") | Some("gif")
+        Some("jpg") | Some("jpeg") | Some("tbn") | Some("png") | Some("webp") | Some("gif")
     );
     
-    if is_image && (params.contains_key("width") || params.contains_key("height")) {
-        let width = params.get("width").and_then(|w| w.parse().ok());
-        let height = params.get("height").and_then(|h| h.parse().ok());
-        let quality = params.get("quality").and_then(|q| q.parse().ok());
+    // Determine the file path to serve (original or resized)
+    let serve_path = if is_image && (params.contains_key("w") || params.contains_key("h") || params.contains_key("q")) {
+        let width = params.get("w").and_then(|w| w.parse().ok());
+        let height = params.get("h").and_then(|h| h.parse().ok());
+        let quality = params.get("q").and_then(|q| q.parse().ok());
         
-        let resized = state
+        state
             .image_resizer
             .resize_image(&full_path, width, height, quality)
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        
-        let content_type = match full_path.extension().and_then(|e| e.to_str()) {
-            Some("jpg") | Some("jpeg") => "image/jpeg",
-            Some("png") => "image/png",
-            Some("webp") => "image/webp",
-            Some("gif") => "image/gif",
-            _ => "application/octet-stream",
-        };
-        
-        return Ok(([(header::CONTENT_TYPE, content_type)], resized).into_response());
-    }
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    } else {
+        full_path
+    };
     
-    let file = File::open(&full_path)
+    // Use ServeFile for proper ETag and Range header support
+    let service = ServeFile::new(serve_path);
+    let response = service
+        .oneshot(req)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
-    let content_type = mime_guess::from_path(&full_path)
-        .first_or_octet_stream()
-        .to_string();
-    
-    let stream = ReaderStream::new(file);
-    let body = Body::from_stream(stream);
-    
-    Ok(([(header::CONTENT_TYPE, content_type)], body).into_response())
+    Ok(response.map(axum::body::Body::new))
 }
 
 fn convert_images(item_id: &str, images: &crate::collection::ImageInfo) -> ImageUrls {

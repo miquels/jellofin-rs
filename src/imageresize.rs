@@ -22,13 +22,18 @@ impl ImageResizer {
         width: Option<u32>,
         height: Option<u32>,
         quality: Option<u32>,
-    ) -> Result<Vec<u8>, ImageResizerError> {
+    ) -> Result<PathBuf, ImageResizerError> {
+        // If no resize parameters, return original path
+        if width.is_none() && height.is_none() && quality.is_none() {
+            return Ok(source_path.to_path_buf());
+        }
+
         let cache_key = self.generate_cache_key(source_path, width, height, quality);
         let cache_path = self.cache_dir.join(&cache_key);
 
         if cache_path.exists() {
             debug!("Serving cached image: {}", cache_key);
-            return Ok(fs::read(&cache_path)?);
+            return Ok(cache_path);
         }
 
         debug!("Resizing image: {:?}", source_path);
@@ -54,9 +59,10 @@ impl ImageResizer {
 
         if let Err(e) = fs::write(&cache_path, &encoded) {
             error!("Failed to write cache file {}: {}", cache_key, e);
+            return Err(ImageResizerError::Io(e));
         }
 
-        Ok(encoded)
+        Ok(cache_path)
     }
 
     fn calculate_dimensions(

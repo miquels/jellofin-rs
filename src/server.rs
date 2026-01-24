@@ -6,9 +6,10 @@ use axum::{
     Router,
 };
 use std::sync::Arc;
+use tower::util::ServiceExt;
 use tower_http::{
     compression::CompressionLayer,
-    services::ServeDir,
+    services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
 
@@ -148,29 +149,24 @@ async fn image_handler(
     State(state): State<AppState>,
     Path((item_id, image_type)): Path<(String, String)>,
     Query(params): Query<ImageParams>,
+    req: axum::http::Request<axum::body::Body>,
 ) -> Result<Response, StatusCode> {
-
     let image_path = find_image_path(&state, &item_id, &image_type).await
         .ok_or(StatusCode::NOT_FOUND)?;
 
-    let resized = state
+    let serve_path = state
         .image_resizer
         .resize_image(&image_path, params.width, params.height, params.quality)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    let content_type = match image_path.extension().and_then(|e| e.to_str()) {
-        Some("jpg") | Some("jpeg") => "image/jpeg",
-        Some("png") => "image/png",
-        Some("webp") => "image/webp",
-        Some("gif") => "image/gif",
-        _ => "application/octet-stream",
-    };
+    // Use ServeFile for proper ETag and Range header support
+    let service = ServeFile::new(serve_path);
+    let response = service
+        .oneshot(req)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok((
-        [(axum::http::header::CONTENT_TYPE, content_type)],
-        resized,
-    )
-        .into_response())
+    Ok(response.map(axum::body::Body::new))
 }
 
 async fn find_image_path(
