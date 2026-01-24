@@ -677,6 +677,23 @@ pub async fn get_similar_items(
     })
 }
 
+
+fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &str) -> Option<Vec<MediaSourceInfo>> {
+    if sources.is_empty() {
+        return None;
+    }
+    
+    Some(sources.iter().enumerate().map(|(i, s)| MediaSourceInfo {
+        id: format!("{}-source-{}", item_id, i),
+        path: s.path.to_string_lossy().to_string(),
+        container: s.container.clone(),
+        size: Some(s.size as i64),
+        supports_direct_stream: true,
+        supports_transcoding: true,
+        media_streams: None,
+    }).collect())
+}
+
 pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str) -> BaseItemDto {
     let mut image_tags = HashMap::new();
     if movie.images.primary.is_some() {
@@ -737,7 +754,7 @@ pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str) -
         etag: None,
         date_created: Some(movie.date_created.to_rfc3339()),
         user_data: None,
-        media_sources: None,
+        media_sources: convert_media_sources(&movie.media_sources, &movie.id),
         provider_ids: Some(provider_ids),
     }
 }
@@ -899,7 +916,7 @@ pub fn convert_episode_to_dto(
         etag: None,
         date_created: Some(episode.date_created.to_rfc3339()),
         user_data: None,
-        media_sources: None,
+        media_sources: convert_media_sources(&episode.media_sources, &episode.id),
         provider_ids: None,
     }
 }
