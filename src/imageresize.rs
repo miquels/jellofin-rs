@@ -1,4 +1,4 @@
-use image::{imageops::FilterType, DynamicImage, GenericImageView, ImageFormat, ImageReader};
+use image::{imageops::FilterType, DynamicImage, GenericImageView, ImageFormat};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Cursor;
@@ -38,11 +38,29 @@ impl ImageResizer {
 
         debug!("Resizing image: {:?}", source_path);
 
-        // Try to resize, but fall back to original on any error
-        let img = match image::open(source_path) {
+        // Read file bytes for format detection
+        let file_bytes = match fs::read(source_path) {
+            Ok(bytes) => bytes,
+            Err(e) => {
+                error!("Failed to read image {:?}: {}", source_path, e);
+                return Ok(source_path.to_path_buf());
+            }
+        };
+
+        // Detect format from file content
+        let format = match image::guess_format(&file_bytes) {
+            Ok(fmt) => fmt,
+            Err(e) => {
+                error!("Failed to detect format for {:?}: {}", source_path, e);
+                return Ok(source_path.to_path_buf());
+            }
+        };
+
+        // Load the image
+        let img = match image::load_from_memory(&file_bytes) {
             Ok(img) => img,
             Err(e) => {
-                error!("Failed to open image {:?}: {}", source_path, e);
+                error!("Failed to load image {:?}: {}", source_path, e);
                 return Ok(source_path.to_path_buf());
             }
         };
@@ -60,18 +78,6 @@ impl ImageResizer {
             img
         } else {
             img.resize(target_width, target_height, FilterType::Lanczos3)
-        };
-
-        // Detect format from actual file content
-        let format = match ImageReader::open(source_path)
-            .and_then(|reader| reader.with_guessed_format())
-            .and_then(|reader| Ok(reader.format()))
-        {
-            Ok(Some(fmt)) => fmt,
-            Ok(None) | Err(_) => {
-                error!("Failed to detect format for {:?}, falling back to original", source_path);
-                return Ok(source_path.to_path_buf());
-            }
         };
 
         let encoded = match self.encode_image(resized, format, quality) {
