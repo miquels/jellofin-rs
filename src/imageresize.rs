@@ -1,4 +1,4 @@
-use image::{imageops::FilterType, DynamicImage, GenericImageView, ImageFormat};
+use image::{imageops::FilterType, DynamicImage, GenericImageView, ImageFormat, ImageReader};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Cursor;
@@ -38,7 +38,15 @@ impl ImageResizer {
 
         debug!("Resizing image: {:?}", source_path);
 
-        let img = image::open(source_path)?;
+        // Try to resize, but fall back to original on any error
+        let img = match image::open(source_path) {
+            Ok(img) => img,
+            Err(e) => {
+                error!("Failed to open image {:?}: {}", source_path, e);
+                return Ok(source_path.to_path_buf());
+            }
+        };
+
         let (orig_width, orig_height) = img.dimensions();
 
         let (target_width, target_height) = self.calculate_dimensions(
@@ -54,12 +62,29 @@ impl ImageResizer {
             img.resize(target_width, target_height, FilterType::Lanczos3)
         };
 
-        let format = self.detect_format(source_path)?;
-        let encoded = self.encode_image(resized, format, quality)?;
+        // Detect format from actual file content
+        let format = match ImageReader::open(source_path)
+            .and_then(|reader| reader.with_guessed_format())
+            .and_then(|reader| Ok(reader.format()))
+        {
+            Ok(Some(fmt)) => fmt,
+            Ok(None) | Err(_) => {
+                error!("Failed to detect format for {:?}, falling back to original", source_path);
+                return Ok(source_path.to_path_buf());
+            }
+        };
+
+        let encoded = match self.encode_image(resized, format, quality) {
+            Ok(data) => data,
+            Err(e) => {
+                error!("Failed to encode image {:?}: {}", source_path, e);
+                return Ok(source_path.to_path_buf());
+            }
+        };
 
         if let Err(e) = fs::write(&cache_path, &encoded) {
             error!("Failed to write cache file {}: {}", cache_key, e);
-            return Err(ImageResizerError::Io(e));
+            return Ok(source_path.to_path_buf());
         }
 
         Ok(cache_path)
@@ -88,21 +113,6 @@ impl ImageResizer {
         }
     }
 
-    fn detect_format(&self, path: &Path) -> Result<ImageFormat, ImageResizerError> {
-        let extension = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .ok_or_else(|| ImageResizerError::UnsupportedFormat("No extension".to_string()))?
-            .to_lowercase();
-
-        match extension.as_str() {
-            "jpg" | "jpeg" => Ok(ImageFormat::Jpeg),
-            "png" => Ok(ImageFormat::Png),
-            "webp" => Ok(ImageFormat::WebP),
-            "gif" => Ok(ImageFormat::Gif),
-            _ => Err(ImageResizerError::UnsupportedFormat(extension)),
-        }
-    }
 
     fn encode_image(
         &self,
@@ -118,19 +128,8 @@ impl ImageResizer {
                 let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, quality as u8);
                 img.write_with_encoder(encoder)?;
             }
-            ImageFormat::Png => {
-                img.write_to(&mut buffer, ImageFormat::Png)?;
-            }
-            ImageFormat::WebP => {
-                img.write_to(&mut buffer, ImageFormat::WebP)?;
-            }
-            ImageFormat::Gif => {
-                img.write_to(&mut buffer, ImageFormat::Gif)?;
-            }
             _ => {
-                return Err(ImageResizerError::UnsupportedFormat(
-                    format!("{:?}", format),
-                ));
+                img.write_to(&mut buffer, format)?;
             }
         }
 
