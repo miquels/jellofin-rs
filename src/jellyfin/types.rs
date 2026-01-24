@@ -185,6 +185,10 @@ pub struct BaseItemDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_hd: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_4k: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub is_folder: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub location_type: Option<String>,
@@ -262,6 +266,8 @@ pub struct UserItemData {
 pub struct MediaSourceInfo {
     pub id: String,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub protocol: Option<String>,
     pub container: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size: Option<i64>,
