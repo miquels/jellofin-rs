@@ -270,6 +270,59 @@ pub async fn update_playback_position(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Request body for /Sessions/Playing/Progress
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct PlayingProgressRequest {
+    pub item_id: String,
+    #[serde(default)]
+    pub position_ticks: i64,
+    #[allow(dead_code)]
+    pub media_source_id: Option<String>,
+    #[allow(dead_code)]
+    pub audio_stream_index: Option<i32>,
+    #[allow(dead_code)]
+    pub subtitle_stream_index: Option<i32>,
+}
+
+/// POST /Sessions/Playing/Progress
+/// Updates playback progress for an item
+pub async fn session_playing_progress(
+    State(state): State<AppState>,
+    req: Request<axum::body::Body>,
+) -> Result<StatusCode, StatusCode> {
+    let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
+    
+    // Parse JSON body
+    let (_parts, body) = req.into_parts();
+    let bytes = axum::body::to_bytes(body, 1024 * 1024)
+        .await
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    
+    let progress: PlayingProgressRequest = serde_json::from_slice(&bytes)
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    
+    let mut user_data = state.db.get_user_data(&user_id, &progress.item_id).await
+        .unwrap_or_else(|_| crate::db::UserData {
+            userid: user_id.clone(),
+            itemid: progress.item_id.clone(),
+            position: None,
+            playedpercentage: None,
+            played: None,
+            playcount: None,
+            favorite: None,
+            timestamp: Some(chrono::Utc::now()),
+        });
+    
+    user_data.position = Some(progress.position_ticks);
+    user_data.timestamp = Some(chrono::Utc::now());
+    
+    state.db.upsert_user_data(&user_data).await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub async fn get_next_up(
     State(state): State<AppState>,
     Query(params): Query<HashMap<String, String>>,

@@ -106,6 +106,9 @@ pub fn build_router(state: AppState) -> Router {
         .route("/Sessions", get(crate::jellyfin::get_sessions))
         .route("/Sessions/Capabilities", axum::routing::post(crate::jellyfin::post_session_capabilities))
         .route("/Sessions/Capabilities/Full", axum::routing::post(crate::jellyfin::post_session_capabilities_full))
+        .route("/Sessions/Playing", axum::routing::post(crate::jellyfin::session_playing_progress))
+        .route("/Sessions/Playing/Progress", axum::routing::post(crate::jellyfin::session_playing_progress))
+        .route("/Sessions/Playing/Stopped", axum::routing::post(crate::jellyfin::session_playing_progress))
         .route("/Items/:item_id/Images/:image_type", get(image_handler))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
