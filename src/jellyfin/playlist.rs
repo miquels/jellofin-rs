@@ -137,7 +137,8 @@ pub async fn get_playlist_items(
     for item_id in &item_ids {
         for collection in state.collections.list_collections().await {
             if let Some(movie) = collection.movies.get(item_id) {
-                items.push(convert_movie_to_dto(movie, &collection.id));
+                let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
+                items.push(convert_movie_to_dto(movie, &collection.id, &server_id));
                 break;
             }
             
@@ -145,6 +146,7 @@ pub async fn get_playlist_items(
                 for season in show.seasons.values() {
                     for episode in season.episodes.values() {
                         if &episode.id == item_id {
+                            let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
                             items.push(super::handlers::convert_episode_to_dto(
                                 episode,
                                 &season.id,
@@ -152,6 +154,7 @@ pub async fn get_playlist_items(
                                 &collection.id,
                                 &season.name,
                                 &show.name,
+                                &server_id,
                             ));
                             break;
                         }

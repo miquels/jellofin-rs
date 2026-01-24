@@ -11,6 +11,21 @@ use crate::server::AppState;
 use super::auth::get_user_id;
 use super::types::*;
 
+
+
+fn get_default_user_data(item_id: &str) -> UserData {
+    UserData {
+        playback_position_ticks: 0,
+        played_percentage: 0.0,
+        play_count: 0,
+        is_favorite: false,
+        last_played_date: Some("0001-01-01T00:00:00Z".to_string()),
+        played: false,
+        key: item_id.to_string(),
+        unplayed_item_count: Some(0),
+    }
+}
+
 fn create_user_dto(user_id: String, username: String, server_id: String) -> UserDto {
     let now = chrono::Utc::now().to_rfc3339();
     
@@ -191,9 +206,18 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
                 path: None,
                 etag: None,
                 date_created: None,
-                user_data: None,
+                user_data: Some(get_default_user_data(&c.id)),
                 media_sources: None,
                 provider_ids: None,
+                recursive_item_count: None,
+                official_rating: None,
+                sort_name: Some(c.name.to_lowercase()),
+                forced_sort_name: Some(c.name.to_lowercase()),
+                original_title: Some(c.name.clone()),
+                can_delete: Some(false),
+                can_download: Some(false),
+                taglines: None,
+                channel_id: None,
             }
         })
         .collect();
@@ -240,9 +264,18 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         path: None,
         etag: None,
         date_created: None,
-        user_data: None,
+        user_data: Some(get_default_user_data("collectionfavorites_f4a0b1c2d3e5c4b8a9e6f7d8e9a0b1c2")),
         media_sources: None,
         provider_ids: None,
+        recursive_item_count: None,
+        official_rating: None,
+        sort_name: Some("favorites".to_string()),
+        forced_sort_name: Some("favorites".to_string()),
+        original_title: Some("Favorites".to_string()),
+        can_delete: Some(false),
+        can_download: Some(false),
+        taglines: None,
+        channel_id: None,
     });
     
     // Add Playlists virtual collection
@@ -287,9 +320,18 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         path: None,
         etag: None,
         date_created: None,
-        user_data: None,
+        user_data: Some(get_default_user_data("collectionplaylist_2f0340563593c4d98b97c9bfa21ce23c")),
         media_sources: None,
         provider_ids: None,
+        recursive_item_count: None,
+        official_rating: None,
+        sort_name: Some("playlists".to_string()),
+        forced_sort_name: Some("playlists".to_string()),
+        original_title: Some("Playlists".to_string()),
+        can_delete: Some(false),
+        can_download: Some(false),
+        taglines: None,
+        channel_id: None,
     });
     
     Json(QueryResult {
@@ -333,13 +375,13 @@ pub async fn get_items(
         if let Some(collection) = state.collections.get_collection(parent_id).await {
             if include_item_types.is_empty() || include_item_types.iter().any(|t| t.eq_ignore_ascii_case("Movie")) {
                 for movie in collection.movies.values().take(limit) {
-                    items.push(convert_movie_to_dto(movie, parent_id));
+                    items.push(convert_movie_to_dto(movie, parent_id, &state.config.jellyfin.server_id.clone().unwrap_or_default()));
                 }
             }
             
             if include_item_types.is_empty() || include_item_types.iter().any(|t| t.eq_ignore_ascii_case("Series")) {
                 for show in collection.shows.values().take(limit - items.len()) {
-                    items.push(convert_show_to_dto(show, parent_id));
+                    items.push(convert_show_to_dto(show, parent_id, &state.config.jellyfin.server_id.clone().unwrap_or_default()));
                 }
             }
         }
@@ -357,7 +399,7 @@ pub async fn get_items(
                     if items.len() >= limit {
                         break;
                     }
-                    items.push(convert_movie_to_dto(movie, &collection.id));
+                    items.push(convert_movie_to_dto(movie, &collection.id, &state.config.jellyfin.server_id.clone().unwrap_or_default()));
                 }
             }
             
@@ -366,7 +408,7 @@ pub async fn get_items(
                     if items.len() >= limit {
                         break;
                     }
-                    items.push(convert_show_to_dto(show, &collection.id));
+                    items.push(convert_show_to_dto(show, &collection.id, &state.config.jellyfin.server_id.clone().unwrap_or_default()));
                 }
             }
         }
@@ -385,6 +427,7 @@ pub async fn get_episodes(
 ) -> Result<Json<QueryResult<BaseItemDto>>, StatusCode> {
     let season_id = params.get("SeasonId").or_else(|| params.get("seasonId"));
     let mut episodes = Vec::new();
+    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
     
     // Scan all collections for the show
     let collections = state.collections.list_collections().await;
@@ -395,14 +438,14 @@ pub async fn get_episodes(
                 let sid_int = sid.parse::<i32>().unwrap_or(-1);
                 if let Some(season) = show.seasons.get(&sid_int) {
                     for episode in season.episodes.values() {
-                        episodes.push(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name));
+                        episodes.push(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name, &server_id));
                     }
                 }
             } else {
                 // Return all episodes from all seasons
                 for season in show.seasons.values() {
                     for episode in season.episodes.values() {
-                        episodes.push(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name));
+                        episodes.push(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name, &server_id));
                     }
                 }
             }
@@ -432,23 +475,24 @@ pub async fn get_item_by_id(
     State(state): State<AppState>,
     Path(item_id): Path<String>,
 ) -> Result<Json<BaseItemDto>, StatusCode> {
+    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
     for collection in state.collections.list_collections().await {
         if let Some(movie) = collection.movies.get(&item_id) {
-            return Ok(Json(convert_movie_to_dto(movie, &collection.id)));
+            return Ok(Json(convert_movie_to_dto(movie, &collection.id, &server_id)));
         }
         
         if let Some(show) = collection.shows.get(&item_id) {
-            return Ok(Json(convert_show_to_dto(show, &collection.id)));
+            return Ok(Json(convert_show_to_dto(show, &collection.id, &server_id)));
         }
         
         for show in collection.shows.values() {
             if let Some(season) = show.seasons.get(&item_id.parse::<i32>().unwrap_or(-1)) {
-                return Ok(Json(convert_season_to_dto(season, &show.id, &collection.id, &show.name)));
+                return Ok(Json(convert_season_to_dto(season, &show.id, &collection.id, &show.name, &server_id)));
             }
             
             for season in show.seasons.values() {
                 if let Some(episode) = season.episodes.get(&item_id.parse::<i32>().unwrap_or(-1)) {
-                    return Ok(Json(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name)));
+                    return Ok(Json(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name, &server_id)));
                 }
             }
         }
@@ -468,15 +512,16 @@ pub async fn get_latest_items(
         .unwrap_or(16);
     
     let mut all_items = Vec::new();
+    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
     
     if let Some(parent_id) = parent_id {
         // Get latest from specific collection
         if let Some(collection) = state.collections.get_collection(parent_id).await {
             for movie in collection.movies.values() {
-                all_items.push((movie.date_created, convert_movie_to_dto(movie, parent_id)));
+                all_items.push((movie.date_created, convert_movie_to_dto(movie, parent_id, &server_id)));
             }
             for show in collection.shows.values() {
-                all_items.push((show.date_created, convert_show_to_dto(show, parent_id)));
+                all_items.push((show.date_created, convert_show_to_dto(show, parent_id, &server_id)));
             }
         }
     } else {
@@ -485,10 +530,10 @@ pub async fn get_latest_items(
         for collection in collections {
             let coll_id = &collection.id;
             for movie in collection.movies.values() {
-                all_items.push((movie.date_created, convert_movie_to_dto(movie, coll_id)));
+                all_items.push((movie.date_created, convert_movie_to_dto(movie, coll_id, &server_id)));
             }
             for show in collection.shows.values() {
-                all_items.push((show.date_created, convert_show_to_dto(show, coll_id)));
+                all_items.push((show.date_created, convert_show_to_dto(show, coll_id, &server_id)));
             }
         }
     }
@@ -682,15 +727,16 @@ pub async fn get_similar_items(
     
     let collections = state.collections.list_collections().await;
     let mut items = Vec::new();
+    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
     
     for r in &results {
         for collection in &collections {
             if let Some(movie) = collection.movies.get(&r.id) {
-                items.push(convert_movie_to_dto(movie, &collection.id));
+                items.push(convert_movie_to_dto(movie, &collection.id, &server_id));
                 break;
             }
             if let Some(show) = collection.shows.get(&r.id) {
-                items.push(convert_show_to_dto(show, &collection.id));
+                items.push(convert_show_to_dto(show, &collection.id, &server_id));
                 break;
             }
         }
@@ -756,7 +802,7 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
     }).collect())
 }
 
-pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str) -> BaseItemDto {
+pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str, server_id: &str) -> BaseItemDto {
     let mut image_tags = HashMap::new();
     if movie.images.primary.is_some() {
         image_tags.insert("Primary".to_string(), movie.id.clone());
@@ -803,7 +849,7 @@ pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str) -
         image_tags,
         backdrop_image_tags,
         primary_image_aspect_ratio: None,
-        server_id: None,
+        server_id: Some(server_id.to_string()),
         container: None,
         video_type: Some("VideoFile".to_string()),
         width: Some(1920),
@@ -817,13 +863,22 @@ pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str) -
         path: None,
         etag: None,
         date_created: Some(movie.date_created.to_rfc3339()),
-        user_data: None,
+        user_data: Some(get_default_user_data(&movie.id)),
         media_sources: convert_media_sources(&movie.media_sources, &movie.id),
         provider_ids: Some(provider_ids),
+        recursive_item_count: None,
+        official_rating: None,
+        sort_name: Some(movie.name.to_lowercase()),
+        forced_sort_name: Some(movie.name.to_lowercase()),
+        original_title: Some(movie.name.clone()),
+        can_delete: Some(true),
+        can_download: Some(true),
+        taglines: None,
+        channel_id: None,
     }
 }
 
-pub fn convert_show_to_dto(show: &crate::collection::Show, parent_id: &str) -> BaseItemDto {
+pub fn convert_show_to_dto(show: &crate::collection::Show, parent_id: &str, server_id: &str) -> BaseItemDto {
     let mut image_tags = HashMap::new();
     if show.images.primary.is_some() {
         image_tags.insert("Primary".to_string(), show.id.clone());
@@ -870,7 +925,7 @@ pub fn convert_show_to_dto(show: &crate::collection::Show, parent_id: &str) -> B
         image_tags,
         backdrop_image_tags,
         primary_image_aspect_ratio: None,
-        server_id: None,
+        server_id: Some(server_id.to_string()),
         container: None,
         video_type: None,
         width: None,
@@ -884,13 +939,22 @@ pub fn convert_show_to_dto(show: &crate::collection::Show, parent_id: &str) -> B
         path: None,
         etag: None,
         date_created: Some(show.date_created.to_rfc3339()),
-        user_data: None,
+        user_data: Some(get_default_user_data(&show.id)),
         media_sources: None,
         provider_ids: Some(provider_ids),
+        recursive_item_count: Some(show.seasons.iter().map(|(_, s)| s.episodes.len() as i32).sum()),
+        official_rating: Some("TV-MA".to_string()),
+        sort_name: Some(show.name.to_lowercase()),
+        forced_sort_name: Some(show.name.to_lowercase()),
+        original_title: Some(show.name.clone()),
+        can_delete: Some(true),
+        can_download: Some(true),
+        taglines: Some(vec![]),
+        channel_id: None,
     }
 }
 
-pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, _parent_id: &str, series_name: &str) -> BaseItemDto {
+pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, _parent_id: &str, series_name: &str, server_id: &str) -> BaseItemDto {
     let mut image_tags = HashMap::new();
     if season.images.primary.is_some() {
         image_tags.insert("Primary".to_string(), season.id.clone());
@@ -923,7 +987,7 @@ pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, 
         image_tags,
         backdrop_image_tags: None,
         primary_image_aspect_ratio: None,
-        server_id: None,
+        server_id: Some(server_id.to_string()),
         container: None,
         video_type: None,
         width: None,
@@ -937,9 +1001,18 @@ pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, 
         path: None,
         etag: None,
         date_created: None,
-        user_data: None,
+        user_data: Some(get_default_user_data(&season.id)),
         media_sources: None,
         provider_ids: None,
+        recursive_item_count: None,
+        official_rating: None,
+        sort_name: Some(season.name.to_lowercase()),
+        forced_sort_name: Some(season.name.to_lowercase()),
+        original_title: Some(season.name.clone()),
+        can_delete: Some(true),
+        can_download: Some(true),
+        taglines: None,
+        channel_id: None,
     }
 }
 
@@ -950,6 +1023,7 @@ pub fn convert_episode_to_dto(
     _parent_id: &str,
     season_name: &str,
     series_name: &str,
+    server_id: &str,
 ) -> BaseItemDto {
     let mut image_tags = HashMap::new();
     if episode.images.primary.is_some() {
@@ -983,8 +1057,7 @@ pub fn convert_episode_to_dto(
         image_tags,
         backdrop_image_tags: None,
         primary_image_aspect_ratio: None,
-        server_id: None,
-        container: None,
+        server_id: Some(server_id.to_string()),
         video_type: Some("VideoFile".to_string()),
         width: Some(1920),
         height: Some(1080),
@@ -997,9 +1070,19 @@ pub fn convert_episode_to_dto(
         path: None,
         etag: None,
         date_created: Some(episode.date_created.to_rfc3339()),
-        user_data: None,
+        user_data: Some(get_default_user_data(&episode.id)),
         media_sources: convert_media_sources(&episode.media_sources, &episode.id),
         provider_ids: None,
+        recursive_item_count: None,
+        official_rating: None,
+        sort_name: Some(episode.name.to_lowercase()),
+        forced_sort_name: Some(episode.name.to_lowercase()),
+        original_title: Some(episode.name.clone()),
+        can_delete: Some(true),
+        can_download: Some(true),
+        taglines: None,
+        channel_id: None,
+        container: Some("mp4".to_string()),
     }
 }
 

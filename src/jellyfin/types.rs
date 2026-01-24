@@ -199,11 +199,29 @@ pub struct BaseItemDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub date_created: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub user_data: Option<UserItemData>,
+    pub user_data: Option<UserData>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_sources: Option<Vec<MediaSourceInfo>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub provider_ids: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recursive_item_count: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub official_rating: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub forced_sort_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub original_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub can_delete: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub can_download: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub taglines: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -248,6 +266,19 @@ pub struct Chapter {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image_tag: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct UserData {
+    pub playback_position_ticks: i64,
+    pub played_percentage: f64,
+    pub play_count: i32,
+    pub is_favorite: bool,
+    pub last_played_date: Option<String>,
+    pub played: bool,
+    pub key: String,
+    pub unplayed_item_count: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
