@@ -22,19 +22,83 @@ pub struct AuthenticationResult {
 #[serde(rename_all = "PascalCase")]
 pub struct UserDto {
     pub name: String,
+    pub server_id: String,
     pub id: String,
     pub has_password: bool,
     pub has_configured_password: bool,
     pub has_configured_easy_password: bool,
+    pub enable_auto_login: bool,
+    pub last_login_date: String,
+    pub last_activity_date: String,
+    pub configuration: UserConfiguration,
     pub policy: UserPolicy,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct UserConfiguration {
+    pub grouped_folders: Vec<String>,
+    pub subtitle_mode: String,
+    pub ordered_views: Vec<String>,
+    pub my_media_excludes: Vec<String>,
+    pub latest_items_excludes: Vec<String>,
+    pub subtitle_language_preference: String,
+    pub cast_receiver_id: String,
+    pub play_default_audio_track: bool,
+    pub display_missing_episodes: bool,
+    pub display_collections_view: bool,
+    pub enable_local_password: bool,
+    pub hide_played_in_latest: bool,
+    pub remember_audio_selections: bool,
+    pub remember_subtitle_selections: bool,
+    pub enable_next_episode_auto_play: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct UserPolicy {
     pub is_administrator: bool,
+    pub is_hidden: bool,
+    pub enable_collection_management: bool,
+    pub enable_subtitle_management: bool,
+    pub enable_lyric_management: bool,
     pub is_disabled: bool,
+    pub blocked_tags: Vec<String>,
+    pub allowed_tags: Vec<String>,
+    pub enable_user_preference_access: bool,
+    pub access_schedules: Vec<serde_json::Value>,
+    pub block_unrated_items: Vec<String>,
+    pub enable_remote_control_of_other_users: bool,
+    pub enable_shared_device_control: bool,
+    pub enable_remote_access: bool,
+    pub enable_live_tv_management: bool,
+    pub enable_live_tv_access: bool,
+    pub enable_media_playback: bool,
+    pub enable_audio_playback_transcoding: bool,
+    pub enable_video_playback_transcoding: bool,
+    pub enable_playback_remuxing: bool,
+    pub force_remote_source_transcoding: bool,
+    pub enable_content_deletion: bool,
+    pub enable_content_deletion_from_folders: Vec<String>,
+    pub enable_content_downloading: bool,
+    pub enable_sync_transcoding: bool,
+    pub enable_media_conversion: bool,
+    pub enabled_devices: Vec<String>,
+    pub enable_all_devices: bool,
+    pub enabled_channels: Vec<String>,
+    pub enable_all_channels: bool,
+    pub enabled_folders: Vec<String>,
     pub enable_all_folders: bool,
+    pub invalid_login_attempt_count: i32,
+    pub login_attempts_before_lockout: i32,
+    pub max_active_sessions: i32,
+    pub enable_public_sharing: bool,
+    pub blocked_media_folders: Vec<String>,
+    pub blocked_channels: Vec<String>,
+    pub remote_client_bitrate_limit: i32,
+    pub authentication_provider_id: String,
+    pub password_reset_provider_id: String,
+    pub sync_play_access: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
