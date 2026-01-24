@@ -147,6 +147,8 @@ pub async fn get_playlist_items(
                                 &season.id,
                                 &show.id,
                                 &collection.id,
+                                &season.name,
+                                &show.name,
                             ));
                             break;
                         }

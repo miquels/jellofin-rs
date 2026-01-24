@@ -165,7 +165,9 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
                 people: None,
                 parent_id: None,
                 series_id: None,
+                series_name: None,
                 season_id: None,
+                season_name: None,
                 index_number: None,
                 parent_index_number: None,
                 child_count: Some(c.item_count() as i32),
@@ -207,7 +209,9 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         people: None,
         parent_id: None,
         series_id: None,
+        series_name: None,
         season_id: None,
+        season_name: None,
         index_number: None,
         parent_index_number: None,
         child_count: Some(0),
@@ -247,7 +251,9 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         people: None,
         parent_id: None,
         series_id: None,
+        series_name: None,
         season_id: None,
+        season_name: None,
         index_number: None,
         parent_index_number: None,
         child_count: Some(0),
@@ -374,14 +380,14 @@ pub async fn get_episodes(
                 let sid_int = sid.parse::<i32>().unwrap_or(-1);
                 if let Some(season) = show.seasons.get(&sid_int) {
                     for episode in season.episodes.values() {
-                        episodes.push(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id));
+                        episodes.push(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name));
                     }
                 }
             } else {
                 // Return all episodes from all seasons
                 for season in show.seasons.values() {
                     for episode in season.episodes.values() {
-                        episodes.push(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id));
+                        episodes.push(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name));
                     }
                 }
             }
@@ -422,12 +428,12 @@ pub async fn get_item_by_id(
         
         for show in collection.shows.values() {
             if let Some(season) = show.seasons.get(&item_id.parse::<i32>().unwrap_or(-1)) {
-                return Ok(Json(convert_season_to_dto(season, &show.id, &collection.id)));
+                return Ok(Json(convert_season_to_dto(season, &show.id, &collection.id, &show.name)));
             }
             
             for season in show.seasons.values() {
                 if let Some(episode) = season.episodes.get(&item_id.parse::<i32>().unwrap_or(-1)) {
-                    return Ok(Json(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id)));
+                    return Ok(Json(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name)));
                 }
             }
         }
@@ -742,7 +748,9 @@ pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str) -
         people: None,
         parent_id: Some(parent_id.to_string()),
         series_id: None,
+        series_name: None,
         season_id: None,
+        season_name: None,
         index_number: None,
         parent_index_number: None,
         child_count: None,
@@ -802,7 +810,9 @@ pub fn convert_show_to_dto(show: &crate::collection::Show, parent_id: &str) -> B
         people: None,
         parent_id: Some(parent_id.to_string()),
         series_id: None,
+        series_name: None,
         season_id: None,
+        season_name: None,
         index_number: None,
         parent_index_number: None,
         child_count: Some(show.seasons.len() as i32),
@@ -827,7 +837,7 @@ pub fn convert_show_to_dto(show: &crate::collection::Show, parent_id: &str) -> B
     }
 }
 
-pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, _parent_id: &str) -> BaseItemDto {
+pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, _parent_id: &str, series_name: &str) -> BaseItemDto {
     let mut image_tags = HashMap::new();
     if season.images.primary.is_some() {
         image_tags.insert("Primary".to_string(), season.id.clone());
@@ -848,7 +858,9 @@ pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, 
         people: None,
         parent_id: Some(show_id.to_string()),
         series_id: Some(show_id.to_string()),
+        series_name: Some(series_name.to_string()),
         season_id: None,
+        season_name: None,
         index_number: Some(season.season_number),
         parent_index_number: None,
         child_count: Some(season.episodes.len() as i32),
@@ -878,6 +890,8 @@ pub fn convert_episode_to_dto(
     season_id: &str,
     show_id: &str,
     _parent_id: &str,
+    season_name: &str,
+    series_name: &str,
 ) -> BaseItemDto {
     let mut image_tags = HashMap::new();
     if episode.images.primary.is_some() {
@@ -899,7 +913,9 @@ pub fn convert_episode_to_dto(
         people: None,
         parent_id: Some(season_id.to_string()),
         series_id: Some(show_id.to_string()),
+        series_name: Some(series_name.to_string()),
         season_id: Some(season_id.to_string()),
+        season_name: Some(season_name.to_string()),
         index_number: Some(episode.episode_number),
         parent_index_number: Some(episode.season_number),
         child_count: None,

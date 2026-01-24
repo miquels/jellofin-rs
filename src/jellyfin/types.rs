@@ -148,7 +148,11 @@ pub struct BaseItemDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub series_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub series_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub season_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub season_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub index_number: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]

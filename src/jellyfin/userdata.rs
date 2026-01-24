@@ -50,7 +50,7 @@ pub async fn get_resume_items(
                     if let Ok(user_data) = state.db.get_user_data(&user_id, &episode.id).await {
                         if let Some(pos) = user_data.position {
                             if pos > 0 && user_data.played != Some(true) {
-                                let mut dto = convert_episode_to_dto(episode, &season.id, &show.id, &collection.id);
+                                let mut dto = convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name);
                                 dto.user_data = Some(UserItemData {
                                     played: user_data.played.unwrap_or(false),
                                     is_favorite: user_data.favorite.unwrap_or(false),
@@ -284,13 +284,13 @@ pub async fn get_next_up(
                 if let Some(season) = show.seasons.get(&last_watched_season) {
                     let next_episode_num = last_watched_episode + 1;
                     if let Some(next_episode) = season.episodes.get(&next_episode_num) {
-                        let dto = convert_episode_to_dto(next_episode, &season.id, &show.id, &collection.id);
+                        let dto = convert_episode_to_dto(next_episode, &season.id, &show.id, &collection.id, &season.name, &show.name);
                         next_up_items.push(dto);
                     } else {
                         let next_season_num = last_watched_season + 1;
                         if let Some(next_season) = show.seasons.get(&next_season_num) {
                             if let Some(first_episode) = next_season.episodes.values().min_by_key(|e| e.episode_number) {
-                                let dto = convert_episode_to_dto(first_episode, &next_season.id, &show.id, &collection.id);
+                                let dto = convert_episode_to_dto(first_episode, &next_season.id, &show.id, &collection.id, &next_season.name, &show.name);
                                 next_up_items.push(dto);
                             }
                         }
