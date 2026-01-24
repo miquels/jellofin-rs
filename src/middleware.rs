@@ -43,9 +43,24 @@ pub async fn log_request(req: Request, next: Next) -> Response {
     let method = req.method().clone();
     let uri = req.uri().clone();
     
-    info!("{} {}", method, uri);
+    let response = next.run(req).await;
     
-    next.run(req).await
+    let status = response.status().as_u16();
+    let content_length = response.headers()
+        .get(axum::http::header::CONTENT_LENGTH)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(0);
+    
+    info!(
+        method = %method,
+        url = %uri,
+        status = status,
+        length = content_length,
+        "HTTP request"
+    );
+    
+    response
 }
 
 pub async fn add_cors_headers(req: Request, next: Next) -> Response {
