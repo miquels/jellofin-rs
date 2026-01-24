@@ -282,21 +282,62 @@ pub async fn get_items(
     Query(params): Query<HashMap<String, String>>,
 ) -> Json<QueryResult<BaseItemDto>> {
     let parent_id = params.get("ParentId").or_else(|| params.get("parentId"));
+    let recursive = params.get("Recursive")
+        .or_else(|| params.get("recursive"))
+        .and_then(|s| s.parse::<bool>().ok())
+        .unwrap_or(false);
     let limit = params.get("Limit")
         .or_else(|| params.get("limit"))
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(100);
     
+    let include_item_types: Vec<String> = params.get("IncludeItemTypes")
+        .or_else(|| params.get("includeItemTypes"))
+        .map(|types| types.split(',').map(|s| s.trim().to_string()).collect())
+        .unwrap_or_default();
+    
     let mut items = Vec::new();
     
     if let Some(parent_id) = parent_id {
+        // Get items from specific collection
         if let Some(collection) = state.collections.get_collection(parent_id).await {
-            for movie in collection.movies.values().take(limit) {
-                items.push(convert_movie_to_dto(movie, parent_id));
+            if include_item_types.is_empty() || include_item_types.iter().any(|t| t.eq_ignore_ascii_case("Movie")) {
+                for movie in collection.movies.values().take(limit) {
+                    items.push(convert_movie_to_dto(movie, parent_id));
+                }
             }
             
-            for show in collection.shows.values().take(limit) {
-                items.push(convert_show_to_dto(show, parent_id));
+            if include_item_types.is_empty() || include_item_types.iter().any(|t| t.eq_ignore_ascii_case("Series")) {
+                for show in collection.shows.values().take(limit - items.len()) {
+                    items.push(convert_show_to_dto(show, parent_id));
+                }
+            }
+        }
+    } else if recursive {
+        // Get items from all collections when recursive=true and no ParentId
+        let collections = state.collections.list_collections().await;
+        
+        for collection in &collections {
+            if items.len() >= limit {
+                break;
+            }
+            
+            if include_item_types.is_empty() || include_item_types.iter().any(|t| t.eq_ignore_ascii_case("Movie")) {
+                for movie in collection.movies.values() {
+                    if items.len() >= limit {
+                        break;
+                    }
+                    items.push(convert_movie_to_dto(movie, &collection.id));
+                }
+            }
+            
+            if include_item_types.is_empty() || include_item_types.iter().any(|t| t.eq_ignore_ascii_case("Series")) {
+                for show in collection.shows.values() {
+                    if items.len() >= limit {
+                        break;
+                    }
+                    items.push(convert_show_to_dto(show, &collection.id));
+                }
             }
         }
     }
