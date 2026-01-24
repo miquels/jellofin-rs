@@ -7,6 +7,7 @@ use axum::{
 use tower::util::ServiceExt;
 use tower_http::services::ServeFile;
 use std::collections::HashMap;
+use std::os::unix::fs::MetadataExt;
 use crate::server::AppState;
 use super::types::*;
 
@@ -327,10 +328,10 @@ pub async fn serve_data_file(
             .as_secs();
         
         let file_size = metadata.len();
+        let inode = metadata.ino();
         
         // Create a unique ETag: "W/size-timestamp"
-        let etag = format!("W/\"{}-{}\"", file_size, last_modified);
-        
+        let etag = format!("\"{:x}-{:x}-{:x}\"", inode, file_size, last_modified);
         if let Ok(etag_value) = axum::http::HeaderValue::from_str(&etag) {
             response.headers_mut().insert(axum::http::header::ETAG, etag_value);
         }
