@@ -113,7 +113,6 @@ pub fn build_router(state: AppState) -> Router {
         .route("/System/Ping", get(system_ping_handler))
         .route("/robots.txt", get(robots_txt_handler))
         .route("/Images/:item_id/:image_type", get(image_handler))
-        .route("/*path", axum::routing::options(options_handler))
         .merge(notflix_routes)
         .merge(jellyfin_routes);
 
@@ -144,12 +143,6 @@ async fn system_ping_handler() -> impl IntoResponse {
 
 async fn robots_txt_handler() -> &'static str {
     "User-agent: *\nDisallow: /\n"
-}
-
-async fn options_handler() -> impl IntoResponse {
-    // Return 200 OK for CORS preflight requests
-    // CORS headers are added by the add_cors_headers middleware
-    StatusCode::OK
 }
 
 async fn image_handler(
