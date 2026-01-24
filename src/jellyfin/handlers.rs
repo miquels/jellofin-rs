@@ -807,7 +807,7 @@ pub fn convert_show_to_dto(show: &crate::collection::Show, parent_id: &str) -> B
     }
 }
 
-pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, parent_id: &str) -> BaseItemDto {
+pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, _parent_id: &str) -> BaseItemDto {
     let mut image_tags = HashMap::new();
     if season.images.primary.is_some() {
         image_tags.insert("Primary".to_string(), season.id.clone());
@@ -826,7 +826,7 @@ pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, 
         genres: None,
         studios: None,
         people: None,
-        parent_id: Some(parent_id.to_string()),
+        parent_id: Some(show_id.to_string()),
         series_id: Some(show_id.to_string()),
         season_id: None,
         index_number: Some(season.season_number),
@@ -857,7 +857,7 @@ pub fn convert_episode_to_dto(
     episode: &crate::collection::Episode,
     season_id: &str,
     show_id: &str,
-    parent_id: &str,
+    _parent_id: &str,
 ) -> BaseItemDto {
     let mut image_tags = HashMap::new();
     if episode.images.primary.is_some() {
@@ -877,7 +877,7 @@ pub fn convert_episode_to_dto(
         genres: None,
         studios: None,
         people: None,
-        parent_id: Some(parent_id.to_string()),
+        parent_id: Some(season_id.to_string()),
         series_id: Some(show_id.to_string()),
         season_id: Some(season_id.to_string()),
         index_number: Some(episode.episode_number),
