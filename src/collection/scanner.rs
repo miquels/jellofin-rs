@@ -235,6 +235,7 @@ fn scan_show_dir(dir: &Path, collection_id: &str) -> Option<Show> {
         premiere_date: None,
         production_year: None,
         community_rating: None,
+        mpaa: None,
         overview: None,
         tagline: None,
         genres: Vec::new(),
@@ -256,6 +257,7 @@ fn scan_show_dir(dir: &Path, collection_id: &str) -> Option<Show> {
             show.overview = metadata.plot;
             show.tagline = metadata.tagline;
             show.community_rating = metadata.rating;
+            show.mpaa = metadata.mpaa;
             show.production_year = metadata.year;
             show.premiere_date = metadata.premiered;
             show.genres = metadata.genres;
@@ -341,12 +343,16 @@ fn create_episode(
     let episode_name = clean_title(filename);
 
     let nfo_path = path.with_extension("nfo");
+    let mut episode_title = episode_name.clone();
     let mut overview = None;
     let mut premiere_date = None;
     let mut community_rating = None;
 
     if nfo_path.exists() {
         if let Some(metadata) = parse_nfo_file(&nfo_path) {
+            if let Some(title) = metadata.title {
+                episode_title = title;
+            }
             overview = metadata.plot;
             premiere_date = metadata.premiered;
             community_rating = metadata.rating;
@@ -365,7 +371,7 @@ fn create_episode(
         show_id: show_id.to_string(),
         season_id: season_id.to_string(),
         collection_id: collection_id.to_string(),
-        name: episode_name,
+        name: episode_title,
         season_number: season_num,
         episode_number: episode_num,
         path: path.to_path_buf(),

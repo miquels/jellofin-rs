@@ -16,13 +16,14 @@ pub struct GoShowDetail {
     pub sort_name: String,
     pub nfo: GoNfo,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub banner: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fanart: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub poster: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rating: Option<f64>,
     pub genre: Vec<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub year: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "seasonAllBanner")]

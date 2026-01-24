@@ -4,7 +4,6 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use std::path::Path as StdPath;
 use crate::server::AppState;
 use crate::collection::sort_name::make_sort_name;
 use super::go_types::*;
@@ -109,16 +108,15 @@ pub async fn get_item_go(
                     })
                     .unwrap_or_default();
                 
-                let thumb_path = {
-                    let video_stem = StdPath::new(&video_path).file_stem()
-                        .map(|s| s.to_string_lossy().to_string())
-                        .unwrap_or_default();
-                    if !video_stem.is_empty() {
-                        Some(format!("{}-thumb.jpg", video_stem))
-                    } else {
-                        None
-                    }
-                };
+                let thumb_path = episode.images.thumb.as_ref()
+                    .and_then(|t| {
+                        // Get path relative to show directory
+                        if let Ok(rel) = t.strip_prefix(&show.path) {
+                            Some(rel.to_string_lossy().to_string())
+                        } else {
+                            t.file_name().map(|n| n.to_string_lossy().to_string())
+                        }
+                    });
                 
                 let ep_timestamp = episode.date_created.timestamp_millis();
                 if ep_timestamp < first_video {
@@ -148,7 +146,8 @@ pub async fn get_item_go(
             episodes.sort_by_key(|e| e.episodeno);
             
             let poster_path = season.images.primary.as_ref()
-                .map(|_| format!("season{:02}-poster.jpg", season.season_number));
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().to_string());
             
             seasons.push(GoSeason {
                 seasonno: season.season_number,
@@ -184,7 +183,7 @@ pub async fn get_item_go(
                 title: show.name.clone(),
                 plot: show.overview.clone(),
                 premiered: show.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
-                mpaa: None,
+                mpaa: show.mpaa.clone(),
                 aired: show.premiere_date.map(|d| d.format("%Y-%m-%d").to_string()),
                 studio: show.studios.first().cloned(),
                 rating: show.community_rating,
@@ -209,6 +208,7 @@ pub async fn get_item_go(
                 thumb: None,
                 fanart: None,
             },
+            banner: show.images.banner.as_ref().map(|_| "banner.jpg".to_string()),
             fanart: show.images.backdrop.as_ref().map(|_| "fanart.jpg".to_string()),
             poster: show.images.primary.as_ref().map(|_| "poster.jpg".to_string()),
             rating: show.community_rating,
