@@ -640,7 +640,7 @@ pub async fn get_playback_info(
                             },
                         ]),
                         default_audio_stream_index: Some(1),
-                        direct_stream_url: Some(format!("/Videos/{}/stream", item_id)),
+                        direct_stream_url: Some(format!("/Videos/{}/stream.mp4", item_id)),
                     }
                 })
                 .collect();
@@ -717,7 +717,7 @@ pub async fn get_playback_info(
                                         },
                                     ]),
                                     default_audio_stream_index: Some(1),
-                                    direct_stream_url: Some(format!("/Videos/{}/stream", item_id)),
+                                    direct_stream_url: Some(format!("/Videos/{}/stream.mp4", item_id)),
                                 }
                             })
                             .collect();

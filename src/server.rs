@@ -72,6 +72,8 @@ pub fn build_router(state: AppState) -> Router {
         .route("/Items/:id/PlaybackInfo", axum::routing::post(crate::jellyfin::get_playback_info))
         .route("/Videos/:id/stream", get(crate::jellyfin::stream_video_with_range))
         .route("/Videos/:id/stream.mkv", get(crate::jellyfin::stream_video_with_range))
+        .route("/Videos/:id/stream.mp4", get(crate::jellyfin::stream_video_with_range))
+        .route("/Videos/:id/stream.m4v", get(crate::jellyfin::stream_video_with_range))
         .route("/Videos/:id/Subtitles/:index/Stream", get(crate::jellyfin::stream_subtitle))
         .route("/Videos/:id/:index/Subtitles", get(crate::jellyfin::stream_subtitle))
         .route("/Search/Hints", get(crate::jellyfin::search_hints))
