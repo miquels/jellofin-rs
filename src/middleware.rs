@@ -70,20 +70,52 @@ pub async fn log_request(req: Request, next: Next) -> Response {
     
     let status = response.status().as_u16();
     
-    // Buffer the response to get actual size
-    let (parts, body) = response.into_parts();
-    let bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap_or_default();
-    let length = bytes.len();
+    // Check Content-Type to decide whether to buffer body
+    let content_type = response.headers()
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+        
+    let is_loggable = content_type.contains("json") || content_type.contains("text") || content_type.contains("xml");
     
-    info!(
-        method = %method,
-        url = %uri,
-        status = status,
-        length = length,
-        "HTTP request"
-    );
-    
-    Response::from_parts(parts, axum::body::Body::from(bytes))
+    if is_loggable {
+        // Buffer text/json responses for debugging logging
+        let (parts, body) = response.into_parts();
+        let bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap_or_default();
+        let length = bytes.len();
+        
+        if let Ok(body_str) = std::str::from_utf8(&bytes) {
+            info!(
+                method = %method,
+                url = %uri,
+                status = status,
+                length = length,
+                res_body = %body_str,
+                "HTTP request (Logged)"
+            );
+        } else {
+             info!(
+                method = %method,
+                url = %uri,
+                status = status,
+                length = length,
+                "HTTP request"
+            );
+        }
+        
+        Response::from_parts(parts, axum::body::Body::from(bytes))
+    } else {
+        // Do NOT buffer video/binary streams - pass through directly
+        info!(
+            method = %method,
+            url = %uri,
+            status = status,
+            type = %content_type,
+            "HTTP request (Streamed)"
+        );
+        response
+    }
 }
 
 pub async fn add_cors_headers(req: Request, next: Next) -> Response {
