@@ -136,6 +136,7 @@ pub struct BaseItemDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub community_rating: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "RunTimeTicks")]
     pub runtime_ticks: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub genres: Option<Vec<String>>,
@@ -185,8 +186,10 @@ pub struct BaseItemDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub media_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "IsHD")]
     pub is_hd: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "Is4K")]
     pub is_4k: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_folder: Option<bool>,
@@ -310,6 +313,7 @@ pub struct MediaSourceInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bitrate: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "RunTimeTicks")]
     pub run_time_ticks: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub etag: Option<String>,
@@ -422,6 +426,7 @@ pub struct MediaStream {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_interlaced: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "IsAVC")]
     pub is_avc: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_hearing_impaired: Option<bool>,
