@@ -19,6 +19,8 @@ pub struct Config {
     pub collections: Vec<CollectionConfig>,
     #[serde(default)]
     pub jellyfin: JellyfinConfig,
+    #[serde(skip)]
+    pub debug_logs: bool,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

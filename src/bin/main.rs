@@ -7,6 +7,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 struct Args {
     #[arg(short, long, default_value = "jellofin-server.yaml")]
     config: String,
+    
+    #[arg(long)]
+    debug_logs: bool,
 }
 
 #[tokio::main]
@@ -21,7 +24,7 @@ async fn main() {
 
     let args = Args::parse();
 
-    if let Err(e) = jellofin_rs::run(&args.config).await {
+    if let Err(e) = jellofin_rs::run(&args.config, args.debug_logs).await {
         eprintln!("Error: {}", e);
         std::process::exit(1);
     }

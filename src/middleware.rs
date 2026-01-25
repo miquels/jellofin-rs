@@ -39,13 +39,25 @@ pub async fn normalize_path(mut req: Request, next: Next) -> Response {
     next.run(req).await
 }
 
-pub async fn log_request(req: Request, next: Next) -> Response {
+pub async fn log_request(
+    axum::extract::State(state): axum::extract::State<crate::server::AppState>,
+    req: Request,
+    next: Next,
+) -> Response {
+    let debug_logs = state.config.debug_logs;
     let method = req.method().clone();
     let uri = req.uri().clone();
     
     // Log POST request body for debugging
     let (parts, body) = req.into_parts();
     let bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap_or_default();
+    
+    if debug_logs {
+        info!("Request: {} {}", method, uri);
+        for (name, value) in &parts.headers {
+             info!("Req Header: {}: {:?}", name, value);
+        }
+    }
     
     if method == axum::http::Method::POST && !bytes.is_empty() {
         if let Ok(body_str) = std::str::from_utf8(&bytes) {
@@ -56,7 +68,7 @@ pub async fn log_request(req: Request, next: Next) -> Response {
                 "POST request"
             );
         }
-    } else {
+    } else if !debug_logs {
         info!(
             method = %method,
             url = %uri,
@@ -70,6 +82,13 @@ pub async fn log_request(req: Request, next: Next) -> Response {
     
     let status = response.status().as_u16();
     
+    if debug_logs {
+         info!("Response: {} {} Status: {}", method, uri, status);
+         for (name, value) in response.headers() {
+             info!("Res Header: {}: {:?}", name, value);
+         }
+    }
+
     // Check Content-Type to decide whether to buffer body
     let content_type = response.headers()
         .get(axum::http::header::CONTENT_TYPE)
@@ -77,15 +96,26 @@ pub async fn log_request(req: Request, next: Next) -> Response {
         .unwrap_or("")
         .to_string();
         
-    let is_loggable = content_type.contains("json") || content_type.contains("text") || content_type.contains("xml");
+    let is_text = content_type.contains("json") || content_type.contains("text") || content_type.contains("xml");
+    // Always log if debug_logs is on AND it is text, or if previously we just logged standard stuff
+    // The original logic was "is_loggable" -> buffer.
     
-    if is_loggable {
+    if is_text {
         // Buffer text/json responses for debugging logging
         let (parts, body) = response.into_parts();
         let bytes = axum::body::to_bytes(body, usize::MAX).await.unwrap_or_default();
         let length = bytes.len();
         
-        if let Ok(body_str) = std::str::from_utf8(&bytes) {
+        let body_str_res = std::str::from_utf8(&bytes);
+        
+        if debug_logs {
+             if let Ok(body_str) = body_str_res {
+                 info!("Res Body: {}", body_str);
+             }
+        }
+        
+        // Standard logging
+        if let Ok(body_str) = body_str_res {
             info!(
                 method = %method,
                 url = %uri,

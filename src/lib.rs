@@ -21,11 +21,15 @@ pub enum ServerError {
     Server(String),
 }
 
-pub async fn run(config_path: &str) -> Result<(), ServerError> {
-    let config = config::Config::from_file(config_path)?;
+pub async fn run(config_path: &str, debug_logs: bool) -> Result<(), ServerError> {
+    let mut config = config::Config::from_file(config_path)?;
+    config.debug_logs = debug_logs;
     
     info!("Using config file: {}", config_path);
     info!("Server name: {}", config.jellyfin.server_name);
+    if debug_logs {
+        info!("Debug logging enabled");
+    }
     
     let db_path = config.get_database_path()
         .ok_or_else(|| ServerError::Server("No database path configured".to_string()))?;

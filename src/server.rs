@@ -8,7 +8,7 @@ use axum::{
 use std::sync::Arc;
 use tower::util::ServiceExt;
 use tower_http::{
-
+    compression::CompressionLayer,
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
     cors::{CorsLayer, Any},
@@ -136,14 +136,14 @@ pub fn build_router(state: AppState) -> Router {
 
     router
         .layer(axum::middleware::from_fn(crate::middleware::normalize_path))
-        .layer(axum::middleware::from_fn(crate::middleware::log_request))
+        .layer(axum::middleware::from_fn_with_state(state.clone(), crate::middleware::log_request))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
                 .allow_methods(Any)
                 .allow_headers(Any)
         )
-
+        .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
