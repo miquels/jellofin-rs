@@ -1010,7 +1010,7 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
         return None;
     }
     
-    Some(sources.iter().enumerate().map(|(i, s)| {
+    Some(sources.iter().map(|s| {
         let filename = s.path.file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("video.mp4")
