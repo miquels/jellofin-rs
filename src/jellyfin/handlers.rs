@@ -218,6 +218,7 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
                 can_download: Some(false),
                 taglines: None,
                 channel_id: None,
+                genre_items: None,
             }
         })
         .collect();
@@ -276,6 +277,7 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         can_download: Some(false),
         taglines: None,
         channel_id: None,
+        genre_items: None,
     });
     
     // Add Playlists virtual collection
@@ -332,6 +334,7 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         can_download: Some(false),
         taglines: None,
         channel_id: None,
+        genre_items: None,
     });
     
     Json(QueryResult {
@@ -1119,6 +1122,10 @@ pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str, s
         community_rating: movie.community_rating.map(|r| r as f32),
         runtime_ticks: movie.runtime_ticks,
         genres: Some(movie.genres.clone()),
+        genre_items: Some(movie.genres.iter().map(|g| NameIdPair {
+            name: g.clone(),
+            id: format!("genre_{}", g), // Deterministic ID
+        }).collect()),
         studios: Some(movie.studios.iter().map(|s| NameIdPair {
             name: s.clone(),
             id: s.clone(),
@@ -1162,7 +1169,8 @@ pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str, s
         original_title: Some(movie.name.clone()),
         can_delete: Some(true),
         can_download: Some(true),
-        taglines: None,
+
+        taglines: movie.tagline.as_ref().map(|t| vec![t.clone()]),
         channel_id: None,
     }
 }
@@ -1240,6 +1248,10 @@ pub fn convert_show_to_dto(show: &crate::collection::Show, parent_id: &str, serv
         can_download: Some(true),
         taglines: Some(vec![]),
         channel_id: None,
+        genre_items: Some(show.genres.iter().map(|g| NameIdPair {
+            name: g.clone(),
+            id: format!("genre_{}", g),
+        }).collect()),
     }
 }
 
@@ -1302,6 +1314,7 @@ pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, 
         can_download: Some(true),
         taglines: None,
         channel_id: None,
+        genre_items: None,
     }
 }
 
@@ -1372,6 +1385,7 @@ pub fn convert_episode_to_dto(
         taglines: None,
         channel_id: None,
         container: Some("mp4".to_string()),
+        genre_items: None,
     }
 }
 
