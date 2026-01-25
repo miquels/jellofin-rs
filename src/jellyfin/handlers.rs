@@ -373,7 +373,42 @@ pub async fn get_items(
     
     let mut items = Vec::new();
     
-    if let Some(parent_id) = parent_id {
+    let ids_param = get_param("Ids").or_else(|| get_param("ids"));
+
+    if let Some(ids_str) = ids_param {
+        let requested_ids: Vec<&str> = ids_str.split(',').map(|s| s.trim()).collect();
+        let collections = state.collections.list_collections().await;
+        
+        for collection in &collections {
+            // Check movies
+            for movie in collection.movies.values() {
+                if requested_ids.contains(&movie.id.as_str()) {
+                    items.push(convert_movie_to_dto(movie, &collection.id, &state.config.jellyfin.server_id.clone().unwrap_or_default()));
+                }
+            }
+            
+            // Check shows
+            for show in collection.shows.values() {
+                if requested_ids.contains(&show.id.as_str()) {
+                    items.push(convert_show_to_dto(show, &collection.id, &state.config.jellyfin.server_id.clone().unwrap_or_default()));
+                }
+                
+                // Check seasons
+                for season in show.seasons.values() {
+                    if requested_ids.contains(&season.id.as_str()) {
+                        items.push(convert_season_to_dto(season, &show.id, &collection.id, &show.name, &state.config.jellyfin.server_id.clone().unwrap_or_default()));
+                    }
+                    
+                    // Check episodes
+                    for episode in season.episodes.values() {
+                        if requested_ids.contains(&episode.id.as_str()) {
+                            items.push(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name, &state.config.jellyfin.server_id.clone().unwrap_or_default()));
+                        }
+                    }
+                }
+            }
+        }
+    } else if let Some(parent_id) = parent_id {
         // Get items from specific collection
         if let Some(collection) = state.collections.get_collection(parent_id).await {
             if include_item_types.is_empty() || include_item_types.iter().any(|t| t.eq_ignore_ascii_case("Movie")) {
