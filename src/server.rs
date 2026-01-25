@@ -11,6 +11,7 @@ use tower_http::{
     compression::CompressionLayer,
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
+    cors::{CorsLayer, Any},
 };
 
 use crate::collection::CollectionRepo;
@@ -136,7 +137,12 @@ pub fn build_router(state: AppState) -> Router {
     router
         .layer(axum::middleware::from_fn(crate::middleware::normalize_path))
         .layer(axum::middleware::from_fn(crate::middleware::log_request))
-        .layer(axum::middleware::from_fn(crate::middleware::add_cors_headers))
+        .layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any)
+        )
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
