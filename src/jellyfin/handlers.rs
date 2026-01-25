@@ -664,9 +664,19 @@ pub async fn get_playback_info(
                             },
                         ]),
                         default_audio_stream_index: Some(1),
-                        direct_stream_url: Some(format!("/Videos/{}/stream.mp4", item_id)),
+                        direct_stream_url: Some(format!("https://mx2.high5.nl:8069/Videos/{}/stream.mp4", item_id)),
                         transcoding_sub_protocol: Some("http".to_string()),
                         required_http_headers: None,
+                        read_at_native_framerate: Some(false),
+                        has_segments: Some(false),
+                        ignore_dts: Some(false),
+                        ignore_index: Some(false),
+                        gen_pts_input: Some(false),
+                        is_infinite_stream: Some(false),
+                        requires_opening: Some(false),
+                        requires_closing: Some(false),
+                        requires_looping: Some(false),
+                        supports_probing: Some(true),
                     }
                 })
                 .collect();
@@ -767,9 +777,19 @@ pub async fn get_playback_info(
                                         },
                                     ]),
                                     default_audio_stream_index: Some(1),
-                                    direct_stream_url: Some(format!("/Videos/{}/stream.mp4", item_id)),
+                                    direct_stream_url: Some(format!("https://mx2.high5.nl:8069/Videos/{}/stream.mp4", item_id)),
                                     transcoding_sub_protocol: Some("http".to_string()),
                                     required_http_headers: None,
+                                    read_at_native_framerate: Some(false),
+                                    has_segments: Some(false),
+                                    ignore_dts: Some(false),
+                                    ignore_index: Some(false),
+                                    gen_pts_input: Some(false),
+                                    is_infinite_stream: Some(false),
+                                    requires_opening: Some(false),
+                                    requires_closing: Some(false),
+                                    requires_looping: Some(false),
+                                    supports_probing: Some(true),
                                 }
                             })
                             .collect();
@@ -994,9 +1014,19 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
                 },
             ]),
             default_audio_stream_index: Some(1),
-            direct_stream_url: Some(format!("/Videos/{}/stream.mp4", item_id)),
+            direct_stream_url: Some(format!("https://mx2.high5.nl:8069/Videos/{}/stream.mp4", item_id)),
             transcoding_sub_protocol: Some("http".to_string()),
             required_http_headers: None,
+            read_at_native_framerate: Some(false),
+            has_segments: Some(false),
+            ignore_dts: Some(false),
+            ignore_index: Some(false),
+            gen_pts_input: Some(false),
+            is_infinite_stream: Some(false),
+            requires_opening: Some(false),
+            requires_closing: Some(false),
+            requires_looping: Some(false),
+            supports_probing: Some(true),
         }
     }).collect())
 }

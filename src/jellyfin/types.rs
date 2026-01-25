@@ -327,6 +327,26 @@ pub struct MediaSourceInfo {
     pub transcoding_sub_protocol: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub required_http_headers: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_at_native_framerate: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_segments: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ignore_dts: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ignore_index: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gen_pts_input: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_infinite_stream: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires_opening: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires_closing: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub requires_looping: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supports_probing: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
