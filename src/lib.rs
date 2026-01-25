@@ -57,7 +57,7 @@ pub async fn run(config_path: &str, debug_logs: bool) -> Result<(), ServerError>
     let image_resizer = Arc::new(imageresize::ImageResizer::new(cache_dir)
         .map_err(|e| ServerError::Server(format!("Failed to create image resizer: {}", e)))?);
     
-    let address = config.listen.address.as_deref().unwrap_or("0.0.0.0");
+    let address = config.listen.address.as_deref().unwrap_or("[::]");
     let port = &config.listen.port;
     let addr: SocketAddr = format!("{}:{}", address, port)
         .parse()
@@ -82,7 +82,6 @@ pub async fn run(config_path: &str, debug_logs: bool) -> Result<(), ServerError>
         info!("Serving HTTPS on {}", addr);
         
         axum_server::bind_rustls(addr, tls_config)
-            .http1_only()
             .serve(app.into_make_service())
             .await
             .map_err(|e| ServerError::Server(format!("Server error: {}", e)))?;
