@@ -613,7 +613,7 @@ pub async fn get_item_counts(State(state): State<AppState>) -> Json<ItemCounts> 
 pub async fn get_playback_info(
     State(state): State<AppState>,
     Path(item_id): Path<String>,
-) -> Result<Json<PlaybackInfoResponse>, StatusCode> {
+) -> Result<Response, StatusCode> {
     for collection in state.collections.list_collections().await {
         if let Some(movie) = collection.movies.get(&item_id) {
             let sources = movie.media_sources.iter()
@@ -720,7 +720,7 @@ pub async fn get_playback_info(
                             },
                         ]),
                         default_audio_stream_index: Some(1),
-                        direct_stream_url: None,
+                        direct_stream_url: Some(format!("/Videos/{}/stream?mediaSourceId={}&static=true", item_id, item_id)),
                         transcoding_sub_protocol: Some("http".to_string()),
                         required_http_headers: None,
                         read_at_native_framerate: None,
@@ -739,10 +739,19 @@ pub async fn get_playback_info(
                 })
                 .collect();
             
-            return Ok(Json(PlaybackInfoResponse { 
+            let response = PlaybackInfoResponse { 
                 media_sources: sources,
                 play_session_id: "e3a869b7a901f8894de8ee65688db6c0".to_string(),
-            }));
+            };
+
+            let bytes = serde_json::to_vec(&response).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let len = bytes.len();
+            
+            return Response::builder()
+                .header(axum::http::header::CONTENT_TYPE, "application/json")
+                .header(axum::http::header::CONTENT_LENGTH, len.to_string())
+                .body(axum::body::Body::from(bytes))
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
         }
         
         for show in collection.shows.values() {
@@ -853,7 +862,7 @@ pub async fn get_playback_info(
                                         },
                                     ]),
                                     default_audio_stream_index: Some(1),
-                                    direct_stream_url: None,
+                                    direct_stream_url: Some(format!("/Videos/{}/stream?mediaSourceId={}&static=true", item_id, item_id)),
                                     transcoding_sub_protocol: Some("http".to_string()),
                                     required_http_headers: None,
                                     read_at_native_framerate: None,
@@ -872,10 +881,19 @@ pub async fn get_playback_info(
                             })
                             .collect();
                         
-                        return Ok(Json(PlaybackInfoResponse { 
+                        let response = PlaybackInfoResponse { 
                             media_sources: sources,
                             play_session_id: "e3a869b7a901f8894de8ee65688db6c0".to_string(),
-                        }));
+                        };
+
+                        let bytes = serde_json::to_vec(&response).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                        let len = bytes.len();
+                        
+                        return Response::builder()
+                            .header(axum::http::header::CONTENT_TYPE, "application/json")
+                            .header(axum::http::header::CONTENT_LENGTH, len.to_string())
+                            .body(axum::body::Body::from(bytes))
+                            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
                     }
                 }
             }
