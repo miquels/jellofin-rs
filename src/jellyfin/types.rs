@@ -323,6 +323,10 @@ pub struct MediaSourceInfo {
     pub default_audio_stream_index: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub direct_stream_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transcoding_sub_protocol: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required_http_headers: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -357,6 +361,30 @@ pub struct MediaStream {
     pub is_anamorphic: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bit_depth: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_range: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub video_range_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio_spatial_format: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub localized_default: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub localized_external: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_layout: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channels: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sample_rate: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub average_frame_rate: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub real_frame_rate: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
