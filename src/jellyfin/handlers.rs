@@ -586,10 +586,10 @@ pub async fn get_playback_info(
                         .to_string();
                     MediaSourceInfo {
                         id: item_id.clone(),
-                        path: format!("/Videos/{}/stream.mp4", item_id),
+                        path: filename.clone(),
                         name: filename,
                         source_type: "Default".to_string(),
-                        protocol: Some("Http".to_string()),
+                        protocol: Some("File".to_string()),
                         container: ms.path.extension()
                             .and_then(|e| e.to_str())
                             .unwrap_or("mp4")
@@ -640,7 +640,7 @@ pub async fn get_playback_info(
                             },
                         ]),
                         default_audio_stream_index: Some(1),
-                        direct_stream_url: Some(format!("/Videos/{}/stream.mp4", item_id)),
+                        direct_stream_url: None,
                     }
                 })
                 .collect();
@@ -663,10 +663,10 @@ pub async fn get_playback_info(
                                     .to_string();
                                     MediaSourceInfo {
                                     id: item_id.clone(),
-                                    path: format!("/Videos/{}/stream.mp4", item_id),
+                                    path: filename.clone(),
                                     name: filename,
                                     source_type: "Default".to_string(),
-                                    protocol: Some("Http".to_string()),
+                                    protocol: Some("File".to_string()),
                                     container: ms.path.extension()
                                         .and_then(|e| e.to_str())
                                         .unwrap_or("mp4")
@@ -717,7 +717,7 @@ pub async fn get_playback_info(
                                         },
                                     ]),
                                     default_audio_stream_index: Some(1),
-                                    direct_stream_url: Some(format!("/Videos/{}/stream.mp4", item_id)),
+                                    direct_stream_url: None,
                                 }
                             })
                             .collect();
@@ -867,10 +867,10 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
             .to_string();
         MediaSourceInfo {
             id: format!("{}-source-{}", item_id, i),
-            path: format!("/Videos/{}-source-{}/stream.mp4", item_id, i),
+            path: filename.clone(),
             name: filename,
             source_type: "Default".to_string(),
-            protocol: Some("Http".to_string()),
+            protocol: Some("File".to_string()),
             container: s.container.clone(),
             video_type: Some("VideoFile".to_string()),
             size: Some(s.size as i64),
@@ -918,7 +918,7 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
                 },
             ]),
             default_audio_stream_index: Some(1),
-            direct_stream_url: Some(format!("/Videos/{}-source-{}/stream", item_id, i)),
+            direct_stream_url: None,
         }
     }).collect())
 }

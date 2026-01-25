@@ -56,6 +56,12 @@ pub async fn log_request(req: Request, next: Next) -> Response {
                 "POST request"
             );
         }
+    } else {
+        info!(
+            method = %method,
+            url = %uri,
+            "Request started"
+        );
     }
     
     // Reconstruct request with body
