@@ -324,9 +324,13 @@ pub struct MediaSourceInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub direct_stream_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub required_http_headers: Option<HashMap<String, String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub transcoding_sub_protocol: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub required_http_headers: Option<HashMap<String, String>>,
+    pub media_attachments: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub formats: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_at_native_framerate: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -405,6 +409,24 @@ pub struct MediaStream {
     pub average_frame_rate: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub real_frame_rate: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_external: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_text_subtitle_stream: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supports_external_stream: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pixel_format: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_interlaced: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_avc: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_hearing_impaired: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_forced: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
