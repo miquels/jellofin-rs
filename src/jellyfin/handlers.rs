@@ -586,10 +586,10 @@ pub async fn get_playback_info(
                         .to_string();
                     MediaSourceInfo {
                         id: item_id.clone(),
-                        path: filename.clone(),
+                        path: format!("/Videos/{}/stream.mp4", item_id),
                         name: filename,
                         source_type: "Default".to_string(),
-                        protocol: Some("File".to_string()),
+                        protocol: Some("Http".to_string()),
                         container: ms.path.extension()
                             .and_then(|e| e.to_str())
                             .unwrap_or("mp4")
@@ -599,7 +599,7 @@ pub async fn get_playback_info(
                         bitrate: ms.bitrate.map(|b| b as i32),
                         run_time_ticks: movie.runtime_ticks,
                         etag: Some(item_id.clone()),
-                        is_remote: false,
+                        is_remote: true,
                         supports_direct_stream: true,
                         supports_direct_play: true,
                         supports_transcoding: false,
@@ -664,7 +664,7 @@ pub async fn get_playback_info(
                             },
                         ]),
                         default_audio_stream_index: Some(1),
-                        direct_stream_url: None,
+                        direct_stream_url: Some(format!("/Videos/{}/stream.mp4", item_id)),
                         transcoding_sub_protocol: Some("http".to_string()),
                         required_http_headers: None,
                     }
@@ -689,10 +689,10 @@ pub async fn get_playback_info(
                                     .to_string();
                                     MediaSourceInfo {
                                     id: item_id.clone(),
-                                    path: filename.clone(),
+                                    path: format!("/Videos/{}/stream.mp4", item_id),
                                     name: filename,
                                     source_type: "Default".to_string(),
-                                    protocol: Some("File".to_string()),
+                                    protocol: Some("Http".to_string()),
                                     container: ms.path.extension()
                                         .and_then(|e| e.to_str())
                                         .unwrap_or("mp4")
@@ -702,7 +702,7 @@ pub async fn get_playback_info(
                                     bitrate: ms.bitrate.map(|b| b as i32),
                                     run_time_ticks: episode.runtime_ticks,
                                     etag: Some(item_id.clone()),
-                                    is_remote: false,
+                                    is_remote: true,
                                     supports_direct_stream: true,
                                     supports_direct_play: true,
                                     supports_transcoding: false,
@@ -767,7 +767,7 @@ pub async fn get_playback_info(
                                         },
                                     ]),
                                     default_audio_stream_index: Some(1),
-                                    direct_stream_url: None,
+                                    direct_stream_url: Some(format!("/Videos/{}/stream.mp4", item_id)),
                                     transcoding_sub_protocol: Some("http".to_string()),
                                     required_http_headers: None,
                                 }
@@ -919,17 +919,17 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
             .to_string();
         MediaSourceInfo {
             id: item_id.to_string(),
-            path: filename.clone(),
+            path: format!("/Videos/{}/stream.mp4", item_id),
             name: filename,
             source_type: "Default".to_string(),
-            protocol: Some("File".to_string()),
+            protocol: Some("Http".to_string()),
             container: s.container.clone(),
             video_type: Some("VideoFile".to_string()),
             size: Some(s.size as i64),
             bitrate: s.bitrate.map(|b| b as i32),
             run_time_ticks: None,
             etag: Some(item_id.to_string()),
-            is_remote: false,
+            is_remote: true,
             supports_direct_stream: true,
             supports_direct_play: true,
             supports_transcoding: true,
@@ -994,7 +994,7 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
                 },
             ]),
             default_audio_stream_index: Some(1),
-            direct_stream_url: None,
+            direct_stream_url: Some(format!("/Videos/{}/stream.mp4", item_id)),
             transcoding_sub_protocol: Some("http".to_string()),
             required_http_headers: None,
         }
