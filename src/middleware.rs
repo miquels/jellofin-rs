@@ -93,13 +93,18 @@ pub async fn log_request(
     let content_type = response.headers()
         .get(axum::http::header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
+        .map(|ct| ct.to_lowercase())
+        .unwrap_or_default();
         
-    let is_text = content_type.contains("json") || content_type.contains("text") || content_type.contains("xml");
-    // Always log if debug_logs is on AND it is text, or if previously we just logged standard stuff
-    // The original logic was "is_loggable" -> buffer.
+    let is_text = content_type.contains("json") 
+        || content_type.contains("text") 
+        || content_type.contains("xml")
+        || content_type.contains("application/x-www-form-urlencoded");
     
+    if debug_logs {
+        info!("Deciding body logging for Content-Type: '{}', is_text: {}", content_type, is_text);
+    }
+
     if is_text {
         // Buffer text/json responses for debugging logging
         let (parts, body) = response.into_parts();
@@ -109,8 +114,9 @@ pub async fn log_request(
         let body_str_res = std::str::from_utf8(&bytes);
         
         if debug_logs {
-             if let Ok(body_str) = body_str_res {
-                 info!("Res Body: {}", body_str);
+             match body_str_res {
+                 Ok(body_str) => info!("Res Body: {}", body_str),
+                 Err(e) => info!("Res Body skipped: Invalid UTF-8 sequence: {}", e),
              }
         }
         

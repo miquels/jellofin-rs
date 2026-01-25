@@ -8,7 +8,7 @@ use axum::{
 use std::sync::Arc;
 use tower::util::ServiceExt;
 use tower_http::{
-
+    compression::CompressionLayer,
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
     cors::{CorsLayer, Any},
@@ -144,6 +144,7 @@ pub fn build_router(state: AppState) -> Router {
                 .allow_headers(Any)
         )
 
+        .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
