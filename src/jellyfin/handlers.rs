@@ -1110,7 +1110,7 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
                 },
             ]),
             default_audio_stream_index: Some(1),
-            direct_stream_url: Some(format!("/Videos/{}/stream?mediaSourceId={}&static=true", item_id, item_id)),
+            direct_stream_url: None,
             transcoding_sub_protocol: Some("http".to_string()),
             required_http_headers: Some(std::collections::HashMap::new()),
             read_at_native_framerate: Some(false),
