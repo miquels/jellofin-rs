@@ -82,7 +82,7 @@ pub async fn run(config_path: &str, debug_logs: bool) -> Result<(), ServerError>
         info!("Serving HTTPS on {}", addr);
         
         axum_server::bind_rustls(addr, tls_config)
-            .http1_only(true)
+            .http1_only()
             .serve(app.into_make_service())
             .await
             .map_err(|e| ServerError::Server(format!("Server error: {}", e)))?;
