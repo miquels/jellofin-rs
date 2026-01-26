@@ -47,28 +47,20 @@ pub async fn stream_subtitle(
     ).into_response())
 }
 
+use crate::collection::repo::FoundItem;
+
 async fn find_video_file(state: &AppState, item_id: &str) -> Result<(PathBuf, u64), StatusCode> {
-    for collection in state.collections.list_collections().await {
-        if let Some(movie) = collection.movies.get(item_id) {
-            if let Some(ms) = movie.media_sources.first() {
-                let metadata = tokio::fs::metadata(&ms.path).await
-                    .map_err(|_| StatusCode::NOT_FOUND)?;
-                return Ok((ms.path.clone(), metadata.len()));
-            }
-        }
-        
-        for show in collection.shows.values() {
-            for season in show.seasons.values() {
-                for episode in season.episodes.values() {
-                    if episode.id == item_id {
-                        if let Some(ms) = episode.media_sources.first() {
-                            let metadata = tokio::fs::metadata(&ms.path).await
-                                .map_err(|_| StatusCode::NOT_FOUND)?;
-                            return Ok((ms.path.clone(), metadata.len()));
-                        }
-                    }
-                }
-            }
+    if let Some((_, item)) = state.collections.get_item(item_id) {
+        let media_sources = match item {
+            FoundItem::Movie(m) => m.media_sources,
+            FoundItem::Episode(e) => e.media_sources,
+            _ => return Err(StatusCode::NOT_FOUND),
+        };
+
+        if let Some(ms) = media_sources.first() {
+            let metadata = tokio::fs::metadata(&ms.path).await
+                .map_err(|_| StatusCode::NOT_FOUND)?;
+            return Ok((ms.path.clone(), metadata.len()));
         }
     }
     
@@ -76,26 +68,16 @@ async fn find_video_file(state: &AppState, item_id: &str) -> Result<(PathBuf, u6
 }
 
 async fn find_subtitle_file(state: &AppState, item_id: &str, index: usize) -> Result<PathBuf, StatusCode> {
-    for collection in state.collections.list_collections().await {
-        if let Some(movie) = collection.movies.get(item_id) {
-            if let Some(ms) = movie.media_sources.first() {
-                if let Some(subtitle) = ms.subtitles.get(index) {
-                    return Ok(subtitle.path.clone());
-                }
-            }
-        }
-        
-        for show in collection.shows.values() {
-            for season in show.seasons.values() {
-                for episode in season.episodes.values() {
-                    if episode.id == item_id {
-                        if let Some(ms) = episode.media_sources.first() {
-                            if let Some(subtitle) = ms.subtitles.get(index) {
-                                return Ok(subtitle.path.clone());
-                            }
-                        }
-                    }
-                }
+    if let Some((_, item)) = state.collections.get_item(item_id) {
+        let media_sources = match item {
+            FoundItem::Movie(m) => m.media_sources,
+            FoundItem::Episode(e) => e.media_sources,
+            _ => return Err(StatusCode::NOT_FOUND),
+        };
+
+        if let Some(ms) = media_sources.first() {
+            if let Some(subtitle) = ms.subtitles.get(index) {
+                return Ok(subtitle.path.clone());
             }
         }
     }

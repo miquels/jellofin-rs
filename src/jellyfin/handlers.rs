@@ -644,30 +644,43 @@ pub async fn get_item_by_id(
     fetch_item_by_id(&state, &item_id).await
 }
 
+use crate::collection::repo::FoundItem;
+
 async fn fetch_item_by_id(state: &AppState, item_id: &str) -> Result<Json<BaseItemDto>, StatusCode> {
     let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
-    for collection in state.collections.list_collections().await {
-        if let Some(movie) = collection.movies.get(item_id) {
-            return Ok(Json(convert_movie_to_dto(movie, &collection.id, &server_id)));
-        }
-        
-        if let Some(show) = collection.shows.get(item_id) {
-            return Ok(Json(convert_show_to_dto(show, &collection.id, &server_id)));
-        }
-        
-        for show in collection.shows.values() {
-            // Check seasons
-            for season in show.seasons.values() {
-                if season.id == item_id {
-                    return Ok(Json(convert_season_to_dto(season, &show.id, &collection.id, &show.name, &server_id)));
-                }
+    
+    if let Some((collection_id, item)) = state.collections.get_item(item_id) {
+        match item {
+            FoundItem::Movie(movie) => {
+                return Ok(Json(convert_movie_to_dto(&movie, &collection_id, &server_id)));
+            }
+            FoundItem::Show(show) => {
+                return Ok(Json(convert_show_to_dto(&show, &collection_id, &server_id)));
+            }
+            FoundItem::Season(season) => {
+                // We need show name
+                let show_name = if let Some((_, FoundItem::Show(show))) = state.collections.get_item(&season.show_id) {
+                    show.name
+                } else {
+                    String::new()
+                };
+                return Ok(Json(convert_season_to_dto(&season, &season.show_id, &collection_id, &show_name, &server_id)));
+            }
+            FoundItem::Episode(episode) => {
+                // We need show name and season name
+                let show_name = if let Some((_, FoundItem::Show(show))) = state.collections.get_item(&episode.show_id) {
+                    show.name
+                } else {
+                    String::new()
+                };
                 
-                // Check episodes
-                for episode in season.episodes.values() {
-                    if episode.id == item_id {
-                        return Ok(Json(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name, &server_id)));
-                    }
-                }
+                let season_name = if let Some((_, FoundItem::Season(season))) = state.collections.get_item(&episode.season_id) {
+                    season.name
+                } else {
+                    String::new()
+                };
+
+                return Ok(Json(convert_episode_to_dto(&episode, &episode.season_id, &episode.show_id, &collection_id, &season_name, &show_name, &server_id)));
             }
         }
     }

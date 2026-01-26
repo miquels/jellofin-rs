@@ -142,6 +142,31 @@ impl CollectionRepo {
             }
         });
     }
+    pub fn get_item(&self, id: &str) -> Option<(String, FoundItem)> {
+        let collections = self.collections.load();
+        
+        for collection in collections.values() {
+            if let Some(item_ref) = collection.get_item(id) {
+                let item = match item_ref {
+                    super::collection::ItemRef::Movie(m) => FoundItem::Movie(m.clone()),
+                    super::collection::ItemRef::Show(s) => FoundItem::Show(s.clone()),
+                    super::collection::ItemRef::Season(s) => FoundItem::Season(s.clone()),
+                    super::collection::ItemRef::Episode(e) => FoundItem::Episode(e.clone()),
+                };
+                return Some((collection.id.clone(), item));
+            }
+        }
+        
+        None
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum FoundItem {
+    Movie(crate::collection::Movie),
+    Show(crate::collection::Show),
+    Season(crate::collection::Season),
+    Episode(crate::collection::Episode),
 }
 
 #[derive(Debug, thiserror::Error)]

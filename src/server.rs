@@ -221,7 +221,7 @@ async fn image_handler(
         }
     }
 
-    let image_path = find_image_path(&state, &item_id, &image_type).await
+    let image_path = find_image_path(&state, &item_id, &image_type)
         .ok_or(StatusCode::NOT_FOUND)?;
 
     let quality = match params.image_type.as_deref() {
@@ -244,68 +244,55 @@ async fn image_handler(
     Ok(response.map(axum::body::Body::new))
 }
 
-async fn find_image_path(
+use crate::collection::repo::FoundItem;
+
+fn find_image_path(
     state: &AppState,
     item_id: &str,
     image_type: &str,
 ) -> Option<PathBuf> {
 
-    for collection in state.collections.list_collections().await {
-        if let Some(movie) = collection.movies.get(item_id) {
-            return match image_type.to_lowercase().as_str() {
+    if let Some((_, item)) = state.collections.get_item(item_id) {
+        match item {
+            FoundItem::Movie(movie) => match image_type.to_lowercase().as_str() {
                 "primary" => movie.images.primary.clone(),
                 "backdrop" => movie.images.backdrop.clone(),
                 "logo" => movie.images.logo.clone(),
                 "thumb" => movie.images.thumb.clone(),
                 "banner" => movie.images.banner.clone(),
                 _ => None,
-            };
-        }
-
-        if let Some(show) = collection.shows.get(item_id) {
-            return match image_type.to_lowercase().as_str() {
+            },
+            FoundItem::Show(show) => match image_type.to_lowercase().as_str() {
                 "primary" => show.images.primary.clone(),
                 "backdrop" => show.images.backdrop.clone(),
                 "logo" => show.images.logo.clone(),
                 "thumb" => show.images.thumb.clone(),
                 "banner" => show.images.banner.clone(),
                 _ => None,
-            };
+            },
+            FoundItem::Season(season) => match image_type.to_lowercase().as_str() {
+                "primary" => season.images.primary.clone(),
+                "backdrop" => season.images.backdrop.clone(),
+                "logo" => season.images.logo.clone(),
+                "thumb" => season.images.thumb.clone(),
+                "banner" => season.images.banner.clone(),
+                _ => None,
+            },
+            FoundItem::Episode(episode) => match image_type.to_lowercase().as_str() {
+                // For episodes, fall back to thumb if primary is None
+                // (episode thumbnails are often named with -thumb suffix)
+                "primary" => episode.images.primary.clone()
+                    .or_else(|| episode.images.thumb.clone()),
+                "backdrop" => episode.images.backdrop.clone(),
+                "logo" => episode.images.logo.clone(),
+                "thumb" => episode.images.thumb.clone(),
+                "banner" => episode.images.banner.clone(),
+                _ => None,
+            },
         }
-
-        for show in collection.shows.values() {
-            for season in show.seasons.values() {
-                if &season.id == item_id {
-                    return match image_type.to_lowercase().as_str() {
-                        "primary" => season.images.primary.clone(),
-                        "backdrop" => season.images.backdrop.clone(),
-                        "logo" => season.images.logo.clone(),
-                        "thumb" => season.images.thumb.clone(),
-                        "banner" => season.images.banner.clone(),
-                        _ => None,
-                    };
-                }
-
-                for episode in season.episodes.values() {
-                    if &episode.id == item_id {
-                        return match image_type.to_lowercase().as_str() {
-                            // For episodes, fall back to thumb if primary is None
-                            // (episode thumbnails are often named with -thumb suffix)
-                            "primary" => episode.images.primary.clone()
-                                .or_else(|| episode.images.thumb.clone()),
-                            "backdrop" => episode.images.backdrop.clone(),
-                            "logo" => episode.images.logo.clone(),
-                            "thumb" => episode.images.thumb.clone(),
-                            "banner" => episode.images.banner.clone(),
-                            _ => None,
-                        };
-                    }
-                }
-            }
-        }
+    } else {
+        None
     }
-
-    None
 }
 
 #[derive(serde::Deserialize)]
