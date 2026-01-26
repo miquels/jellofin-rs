@@ -361,6 +361,8 @@ fn create_episode(
     let mut premiere_date = None;
     let mut community_rating = None;
 
+    let mut runtime_ticks = None;
+
     if nfo_path.exists() {
         if let Some(metadata) = parse_nfo_file(&nfo_path) {
             if let Some(title) = metadata.title {
@@ -369,12 +371,7 @@ fn create_episode(
             overview = metadata.plot;
             premiere_date = metadata.premiered;
             community_rating = metadata.rating;
-        }
-    }
 
-    let mut runtime_ticks = None;
-    if nfo_path.exists() {
-        if let Some(metadata) = parse_nfo_file(&nfo_path) {
             if let Some(runtime_str) = metadata.runtime {
                 if let Ok(minutes) = runtime_str.parse::<i64>() {
                     runtime_ticks = Some(minutes * 600_000_000);

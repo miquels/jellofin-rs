@@ -37,6 +37,33 @@ pub fn parse_nfo_content(content: &str) -> Option<NfoMetadata> {
     metadata.mpaa = extract_tag(content, "mpaa");
     metadata.runtime = extract_tag(content, "runtime");
     
+    if metadata.runtime.is_none() {
+        // Try to find duration in fileinfo/streamdetails/video
+        // Structure: <fileinfo><streamdetails><video><duration>...</duration></video></streamdetails></fileinfo>
+        // extract_tag finds the first occurrence, which should work for the main video stream
+        if let Some(fileinfo) = extract_tag(content, "fileinfo") {
+             if let Some(streamdetails) = extract_tag(&fileinfo, "streamdetails") {
+                 if let Some(video) = extract_tag(&streamdetails, "video") {
+                     if let Some(duration) = extract_tag(&video, "duration") {
+                         // Duration is usually in minutes (float)
+                         if let Ok(mins) = duration.parse::<f64>() {
+                             metadata.runtime = Some((mins.round() as i64).to_string());
+                         }
+                     }
+                     
+                     if metadata.runtime.is_none() {
+                         if let Some(seconds) = extract_tag(&video, "durationinseconds") {
+                             if let Ok(secs) = seconds.parse::<f64>() {
+                                 let mins = (secs / 60.0).round() as i64;
+                                 metadata.runtime = Some(mins.to_string());
+                             }
+                         }
+                     }
+                 }
+             }
+        }
+    }
+    
     if let Some(rating_str) = extract_tag(content, "rating") {
         metadata.rating = rating_str.parse::<f64>().ok();
     }
