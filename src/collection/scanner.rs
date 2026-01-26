@@ -372,6 +372,17 @@ fn create_episode(
         }
     }
 
+    let mut runtime_ticks = None;
+    if nfo_path.exists() {
+        if let Some(metadata) = parse_nfo_file(&nfo_path) {
+            if let Some(runtime_str) = metadata.runtime {
+                if let Ok(minutes) = runtime_str.parse::<i64>() {
+                    runtime_ticks = Some(minutes * 600_000_000);
+                }
+            }
+        }
+    }
+
     let subtitles = find_subtitles(path);
     let metadata = fs::metadata(path).ok()?;
     let size = metadata.len();
@@ -390,7 +401,7 @@ fn create_episode(
         path: path.to_path_buf(),
         premiere_date,
         community_rating,
-        runtime_ticks: None,
+        runtime_ticks,
         overview,
         images: find_episode_images(path),
         media_sources: vec![MediaSource {
