@@ -227,6 +227,10 @@ pub struct BaseItemDto {
     pub taglines: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub channel_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub play_access: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enable_media_source_display: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

@@ -219,6 +219,8 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
                 taglines: None,
                 channel_id: None,
                 genre_items: None,
+                play_access: Some("Full".to_string()),
+                enable_media_source_display: Some(false),
             }
         })
         .collect();
@@ -278,6 +280,8 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         taglines: None,
         channel_id: None,
         genre_items: None,
+        play_access: Some("Full".to_string()),
+        enable_media_source_display: Some(false),
     });
     
     // Add Playlists virtual collection
@@ -335,6 +339,8 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         taglines: None,
         channel_id: None,
         genre_items: None,
+        play_access: Some("Full".to_string()),
+        enable_media_source_display: Some(false),
     });
     
     Json(QueryResult {
@@ -1236,6 +1242,8 @@ pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str, s
 
         taglines: movie.tagline.as_ref().map(|t| vec![t.clone()]),
         channel_id: None,
+        play_access: Some("Full".to_string()),
+        enable_media_source_display: Some(false),
     }
 }
 
@@ -1316,6 +1324,8 @@ pub fn convert_show_to_dto(show: &crate::collection::Show, parent_id: &str, serv
             name: g.clone(),
             id: format!("genre_{}", g),
         }).collect()),
+        play_access: Some("Full".to_string()),
+        enable_media_source_display: Some(false),
     }
 }
 
@@ -1379,6 +1389,8 @@ pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, 
         taglines: None,
         channel_id: None,
         genre_items: None,
+        play_access: Some("Full".to_string()),
+        enable_media_source_display: None,
     }
 }
 
@@ -1450,6 +1462,8 @@ pub fn convert_episode_to_dto(
         channel_id: None,
         container: Some("mp4".to_string()),
         genre_items: None,
+        play_access: Some("Full".to_string()),
+        enable_media_source_display: None,
     }
 }
 
