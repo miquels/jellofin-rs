@@ -511,7 +511,7 @@ pub async fn get_episodes(
 
 pub async fn get_item_by_id(
     State(state): State<AppState>,
-    Path(item_id): Path<String>,
+    Path((_user_id, item_id)): Path<(String, String)>,
 ) -> Result<Json<BaseItemDto>, StatusCode> {
     let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
     for collection in state.collections.list_collections().await {
