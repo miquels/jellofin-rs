@@ -1575,7 +1575,7 @@ pub fn convert_episode_to_dto(
         can_download: Some(true),
         taglines: None,
         channel_id: None,
-        container: Some("mp4".to_string()),
+        container: None,
         genre_items: None,
         play_access: Some("Full".to_string()),
         enable_media_source_display: None,
