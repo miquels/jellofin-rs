@@ -656,13 +656,17 @@ async fn fetch_item_by_id(state: &AppState, item_id: &str) -> Result<Json<BaseIt
         }
         
         for show in collection.shows.values() {
-            if let Some(season) = show.seasons.get(&item_id.parse::<i32>().unwrap_or(-1)) {
-                return Ok(Json(convert_season_to_dto(season, &show.id, &collection.id, &show.name, &server_id)));
-            }
-            
+            // Check seasons
             for season in show.seasons.values() {
-                if let Some(episode) = season.episodes.get(&item_id.parse::<i32>().unwrap_or(-1)) {
-                    return Ok(Json(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name, &server_id)));
+                if season.id == item_id {
+                    return Ok(Json(convert_season_to_dto(season, &show.id, &collection.id, &show.name, &server_id)));
+                }
+                
+                // Check episodes
+                for episode in season.episodes.values() {
+                    if episode.id == item_id {
+                        return Ok(Json(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name, &server_id)));
+                    }
                 }
             }
         }
