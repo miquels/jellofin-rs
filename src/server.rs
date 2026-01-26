@@ -82,6 +82,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/Users/:user_id/Items/Resume", get(crate::jellyfin::get_resume_items))
         .route("/Movies/Recommendations", get(crate::jellyfin::get_movie_recommendations))
         .route("/Shows/NextUp", get(crate::jellyfin::get_next_up))
+        .route("/Shows/:id/Seasons", get(crate::jellyfin::get_seasons))
         .route("/Shows/:id/Episodes", get(crate::jellyfin::get_episodes))
         .route("/Users/:user_id/PlayedItems/:id", axum::routing::post(crate::jellyfin::mark_played))
         .route("/Users/:user_id/PlayedItems/:id", axum::routing::delete(crate::jellyfin::mark_unplayed))

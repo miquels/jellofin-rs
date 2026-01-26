@@ -523,6 +523,46 @@ pub async fn get_items(
         items,
     })
 }
+pub async fn get_seasons(
+    State(state): State<AppState>,
+    Path(show_id): Path<String>,
+    Query(_params): Query<HashMap<String, String>>,
+) -> Result<Json<QueryResult<BaseItemDto>>, StatusCode> {
+    let mut seasons_dto = Vec::new();
+    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
+    
+    // Scan all collections for the show
+    let collections = state.collections.list_collections().await;
+    for collection in collections {
+        if let Some(show) = collection.shows.get(&show_id) {
+            // Found the show, getting seasons
+            let mut seasons: Vec<_> = show.seasons.values().collect();
+            seasons.sort_by_key(|s| s.season_number);
+            
+            for season in seasons {
+                seasons_dto.push(convert_season_to_dto(
+                    season,
+                    &show.id,
+                    &collection.id, // parent_id for season is usually show_id, but here it might be context dependent. 
+                                    // In convert_season_to_dto logic: 
+                                    // pub fn convert_season_to_dto(season: &crate::collection::Season, show_id: &str, _parent_id: &str, series_name: &str)
+                                    // It ignores passing parent_id really? Checking impl:
+                                    // parent_id: Some(show_id.to_string()), (It uses show_id as parent_id inside)
+                    &show.name,
+                    &server_id
+                ));
+            }
+            
+            return Ok(Json(QueryResult {
+                total_record_count: seasons_dto.len(),
+                items: seasons_dto,
+            }));
+        }
+    }
+    
+    Err(StatusCode::NOT_FOUND)
+}
+
 
 pub async fn get_episodes(
     State(state): State<AppState>,
