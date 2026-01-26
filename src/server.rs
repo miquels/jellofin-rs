@@ -65,7 +65,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/UserViews", get(crate::jellyfin::get_user_views))
         .route("/Users/:user_id/Items", get(crate::jellyfin::get_items))
         .route("/Users/:user_id/Items/Latest", get(crate::jellyfin::get_latest_items))
-        .route("/Users/:user_id/Items/:id", get(crate::jellyfin::get_item_by_id))
+        .route("/Users/:user_id/Items/:id", get(crate::jellyfin::get_user_item_by_id))
         .route("/Items", get(crate::jellyfin::get_items))
         .route("/Items/:id", get(crate::jellyfin::get_item_by_id))
         .route("/Items/Latest", get(crate::jellyfin::get_latest_items))

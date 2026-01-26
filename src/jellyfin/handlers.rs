@@ -509,17 +509,28 @@ pub async fn get_episodes(
     Err(StatusCode::NOT_FOUND)
 }
 
-pub async fn get_item_by_id(
+pub async fn get_user_item_by_id(
     State(state): State<AppState>,
     Path((_user_id, item_id)): Path<(String, String)>,
 ) -> Result<Json<BaseItemDto>, StatusCode> {
+    fetch_item_by_id(&state, &item_id).await
+}
+
+pub async fn get_item_by_id(
+    State(state): State<AppState>,
+    Path(item_id): Path<String>,
+) -> Result<Json<BaseItemDto>, StatusCode> {
+    fetch_item_by_id(&state, &item_id).await
+}
+
+async fn fetch_item_by_id(state: &AppState, item_id: &str) -> Result<Json<BaseItemDto>, StatusCode> {
     let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
     for collection in state.collections.list_collections().await {
-        if let Some(movie) = collection.movies.get(&item_id) {
+        if let Some(movie) = collection.movies.get(item_id) {
             return Ok(Json(convert_movie_to_dto(movie, &collection.id, &server_id)));
         }
         
-        if let Some(show) = collection.shows.get(&item_id) {
+        if let Some(show) = collection.shows.get(item_id) {
             return Ok(Json(convert_show_to_dto(show, &collection.id, &server_id)));
         }
         
