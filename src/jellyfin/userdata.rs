@@ -272,7 +272,7 @@ pub async fn update_playback_position(
 
 /// Request body for /Sessions/Playing/Progress
 #[derive(Debug, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "PascalCase")]
 pub struct PlayingProgressRequest {
     pub item_id: String,
     #[serde(default)]
