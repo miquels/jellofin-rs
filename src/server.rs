@@ -80,7 +80,6 @@ pub fn build_router(state: AppState) -> Router {
         .route("/Search/Hints", get(crate::jellyfin::search_hints))
         .route("/Items/:id/Similar", get(crate::jellyfin::get_similar_items))
         .route("/Users/:user_id/Items/Resume", get(crate::jellyfin::get_resume_items))
-        .route("/UserItems/Resume", get(crate::jellyfin::get_resume_items))
         .route("/Movies/Recommendations", get(crate::jellyfin::get_movie_recommendations))
         .route("/Shows/NextUp", get(crate::jellyfin::get_next_up))
         .route("/Shows/:id/Episodes", get(crate::jellyfin::get_episodes))
