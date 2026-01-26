@@ -9,6 +9,8 @@ pub mod server;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::io::BufReader;
+use std::fs::File;
 use tracing::info;
 
 #[derive(Debug, thiserror::Error)]
@@ -75,9 +77,20 @@ pub async fn run(config_path: &str, debug_logs: bool) -> Result<(), ServerError>
         info!("Loading TLS certificate from {}", cert_path);
         info!("Loading TLS key from {}", key_path);
         
-        let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert_path, key_path)
-            .await
-            .map_err(|e| ServerError::Server(format!("Failed to load TLS config: {}", e)))?;
+        let tls_config = {
+            let certs = load_certs(cert_path).map_err(|e| ServerError::Server(format!("Failed to load certs: {}", e)))?;
+            let key = load_private_key(key_path).map_err(|e| ServerError::Server(format!("Failed to load key: {}", e)))?;
+
+            let mut config = rustls::ServerConfig::builder()
+                .with_no_client_auth()
+                .with_single_cert(certs, key)
+                .map_err(|e| ServerError::Server(format!("Failed to build TLS config: {}", e)))?;
+            
+            // CRITICAL: Force HTTP/1.1 ONLY via ALPN to prevent HTTP/2 usage
+            config.alpn_protocols = vec![b"http/1.1".to_vec()];
+
+            axum_server::tls_rustls::RustlsConfig::from_config(Arc::new(config))
+        };
         
         info!("Serving HTTPS on {}", addr);
         
@@ -98,4 +111,25 @@ pub async fn run(config_path: &str, debug_logs: bool) -> Result<(), ServerError>
     }
     
     Ok(())
+}
+
+fn load_certs(path: &str) -> std::io::Result<Vec<rustls::pki_types::CertificateDer<'static>>> {
+    let file = File::open(path)?;
+    let mut reader = BufReader::new(file);
+    rustls_pemfile::certs(&mut reader).collect()
+}
+
+fn load_private_key(path: &str) -> std::io::Result<rustls::pki_types::PrivateKeyDer<'static>> {
+    let file = File::open(path)?;
+    let mut reader = BufReader::new(file);
+    loop {
+        match rustls_pemfile::read_one(&mut reader)? {
+            Some(rustls_pemfile::Item::Pkcs1Key(key)) => return Ok(key.into()),
+            Some(rustls_pemfile::Item::Pkcs8Key(key)) => return Ok(key.into()),
+            Some(rustls_pemfile::Item::Sec1Key(key)) => return Ok(key.into()),
+            None => break,
+            _ => {}
+        }
+    }
+    Err(std::io::Error::new(std::io::ErrorKind::Other, "no private key found"))
 }
