@@ -1,7 +1,7 @@
 use axum::{
     extract::{Path, Query, Request, State},
     http::{header, StatusCode},
-    response::{IntoResponse, Response},
+    response::{IntoResponse, Redirect, Response},
     routing::get,
     Router,
 };
@@ -17,7 +17,7 @@ use tower_http::{
 use crate::collection::CollectionRepo;
 use crate::config::Config;
 use crate::db::SqliteRepository;
-use crate::imageresize::ImageResizer;
+use crate::util::imageresize::ImageResizer;
 use std::path::PathBuf;
 
 #[derive(Clone)]
@@ -196,12 +196,42 @@ async fn image_handler(
     Query(params): Query<ImageParams>,
     req: axum::http::Request<axum::body::Body>,
 ) -> Result<Response, StatusCode> {
+
+    if let Some(tag) = params.tag {
+        // Jellyfin redirect tag.
+        if let Some(url) = tag.strip_prefix("redirect_") {
+            return Ok(Redirect::to(url).into_response().map(axum::body::Body::new));
+        }
+
+        // Jellyfin 'open local file' tag.
+        if let Some(file) = tag.strip_prefix("file_") {
+            // Let's only allow images, shall we.
+            const IMAGE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp"];
+            if let Some((_, ext)) = file.rsplit_once(".") {
+                if IMAGE_EXTENSIONS.contains(&ext) {
+                    let service = ServeFile::new(file);
+                    let response = service
+                        .oneshot(req)
+                        .await
+                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                    return Ok(response.map(axum::body::Body::new));
+                }
+            }
+            return Err(StatusCode::NOT_FOUND);
+        }
+    }
+
     let image_path = find_image_path(&state, &item_id, &image_type).await
         .ok_or(StatusCode::NOT_FOUND)?;
 
+    let quality = match params.image_type.as_deref() {
+        Some("primary") | Some("logo") => state.config.jellyfin.image_quality_poster,
+        _ => params.quality,
+    };
+
     let serve_path = state
         .image_resizer
-        .resize_image(&image_path, params.width, params.height, params.quality)
+        .resize_image(&image_path, params.width, params.height, quality)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Use ServeFile for proper ETag and Range header support
@@ -280,9 +310,14 @@ async fn find_image_path(
 
 #[derive(serde::Deserialize)]
 struct ImageParams {
+    // Notflix params
     width: Option<u32>,
     height: Option<u32>,
     quality: Option<u32>,
+    // Jellyfin params.
+    #[serde(rename = "type")]
+    image_type: Option<String>,
+    tag: Option<String>,
 }
 
 async fn image_handler_indexed(

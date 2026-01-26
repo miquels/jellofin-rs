@@ -93,6 +93,16 @@ impl ImageResizer {
             return Ok(source_path.to_path_buf());
         }
 
+        // Copy mtime of original file.
+        if let Ok(meta) = fs::metadata(&cache_path) {
+            let times = fs::FileTimes::new()
+                .set_accessed(meta.accessed()?)
+                .set_modified(meta.modified()?);
+            if let Ok(dest) = fs::File::open(&cache_path) {
+                let _ = dest.set_times(times);
+            }
+        }
+
         Ok(cache_path)
     }
 

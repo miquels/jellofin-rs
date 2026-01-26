@@ -83,7 +83,7 @@ pub struct JellyfinConfig {
     pub autoregister: bool,
     #[serde(alias = "imagequalityposter", rename = "imagequalityposter")]
     #[serde(default)]
-    pub image_quality_poster: Option<i32>,
+    pub image_quality_poster: Option<u32>,
 }
 
 impl Default for JellyfinConfig {
