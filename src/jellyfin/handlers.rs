@@ -579,8 +579,23 @@ pub async fn get_episodes(
         if let Some(show) = collection.shows.get(&show_id) {
             if let Some(sid) = season_id {
                 // Return episodes for specific season
-                let sid_int = sid.parse::<i32>().unwrap_or(-1);
-                if let Some(season) = show.seasons.get(&sid_int) {
+                // First try to find by ID string
+                let mut found_season = None;
+                for season in show.seasons.values() {
+                    if season.id == *sid {
+                        found_season = Some(season);
+                        break;
+                    }
+                }
+                
+                // If not found by ID, try parsing as season number (fallback)
+                if found_season.is_none() {
+                    if let Ok(sid_int) = sid.parse::<i32>() {
+                        found_season = show.seasons.get(&sid_int);
+                    }
+                }
+
+                if let Some(season) = found_season {
                     for episode in season.episodes.values() {
                         episodes.push(convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name, &server_id));
                     }
