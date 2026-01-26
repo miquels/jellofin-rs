@@ -1539,9 +1539,40 @@ pub async fn get_grouping_options(
 
 pub async fn get_item_user_data(
     State(_state): State<AppState>,
-    Path((_user_id, item_id)): Path<(String, String)>,
+    Path(item_id): Path<String>,
 ) -> Json<UserData> {
     // Return default user data for now
     Json(get_default_user_data(&item_id))
+}
+
+pub async fn get_theme_songs(
+    State(_state): State<AppState>,
+    Path(_item_id): Path<String>,
+) -> Json<QueryResult<BaseItemDto>> {
+    // Stub: No theme songs
+    Json(QueryResult {
+        items: vec![],
+        total_record_count: 0,
+    })
+}
+
+pub async fn get_special_features(
+    State(_state): State<AppState>,
+    Path(_item_id): Path<String>,
+) -> Json<QueryResult<BaseItemDto>> {
+    // Stub: No special features
+    Json(QueryResult {
+        items: vec![],
+        total_record_count: 0,
+    })
+}
+
+pub async fn get_user_image(
+    State(_state): State<AppState>,
+    Path((_user_id, _image_type)): Path<(String, String)>,
+) -> Result<Response, StatusCode> {
+    // Stub: Return 404 for user profile images for now, or a default avatar if we had one.
+    // 404 is better than 500/routing error.
+    Err(StatusCode::NOT_FOUND)
 }
 

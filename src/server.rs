@@ -113,8 +113,11 @@ pub fn build_router(state: AppState) -> Router {
         .route("/Sessions/Playing/Stopped", axum::routing::post(crate::jellyfin::session_playing_progress))
         .route("/Items/:item_id/Images/:image_type", get(image_handler))
         .route("/Items/:item_id/Images/:image_type/:index", get(image_handler_indexed))
+        .route("/Items/:id/ThemeSongs", get(crate::jellyfin::get_theme_songs))
+        .route("/Items/:id/SpecialFeatures", get(crate::jellyfin::get_special_features))
         .route("/Items/Suggestions", get(crate::jellyfin::get_suggestions))
         .route("/MediaSegments/:id", get(crate::jellyfin::get_media_segments))
+        .route("/Users/:user_id/Images/:image_type", get(crate::jellyfin::get_user_image))
         // Legacy/Alias Routes
         .route("/UserViews/GroupingOptions", get(crate::jellyfin::get_grouping_options))
         .route("/UserItems/Resume", get(crate::jellyfin::get_resume_items))
