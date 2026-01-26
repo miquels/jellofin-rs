@@ -415,7 +415,11 @@ pub async fn get_items(
             }
         }
     } else if let Some(parent_id) = parent_id {
-        // Get items from specific collection
+        // Get items from specific collection, series, or season
+        
+        let collections = state.collections.list_collections().await;
+        
+        // 1. Check if ParentId is a Collection
         if let Some(collection) = state.collections.get_collection(parent_id).await {
             if include_item_types.is_empty() || include_item_types.iter().any(|t| t.eq_ignore_ascii_case("Movie")) {
                 for movie in collection.movies.values().take(limit) {
@@ -426,6 +430,62 @@ pub async fn get_items(
             if include_item_types.is_empty() || include_item_types.iter().any(|t| t.eq_ignore_ascii_case("Series")) {
                 for show in collection.shows.values().take(limit - items.len()) {
                     items.push(convert_show_to_dto(show, parent_id, &state.config.jellyfin.server_id.clone().unwrap_or_default()));
+                }
+            }
+        } else {
+            // 2. Check if ParentId is a Series (return Seasons)
+            let mut found = false;
+            for collection in &collections {
+                if let Some(show) = collection.shows.get(parent_id) {
+                    // Found the series, return its seasons
+                    if include_item_types.is_empty() || include_item_types.iter().any(|t| t.eq_ignore_ascii_case("Season")) {
+                        // Sort seasons by index number
+                        let mut seasons: Vec<_> = show.seasons.values().collect();
+                        seasons.sort_by_key(|s| s.season_number);
+                        
+                        for season in seasons {
+                            items.push(convert_season_to_dto(
+                                season, 
+                                &show.id, 
+                                &collection.id, 
+                                &show.name, 
+                                &state.config.jellyfin.server_id.clone().unwrap_or_default()
+                            ));
+                        }
+                    }
+                    found = true;
+                    break;
+                }
+            }
+            
+            // 3. Check if ParentId is a Season (return Episodes)
+            if !found {
+                for collection in &collections {
+                    for show in collection.shows.values() {
+                        if let Some(season) = show.seasons.values().find(|s| s.id == *parent_id) {
+                            // Found the season, return its episodes
+                            if include_item_types.is_empty() || include_item_types.iter().any(|t| t.eq_ignore_ascii_case("Episode")) {
+                                // Sort episodes by index number
+                                let mut episodes: Vec<_> = season.episodes.values().collect();
+                                episodes.sort_by_key(|e| e.episode_number);
+                                
+                                for episode in episodes {
+                                    items.push(convert_episode_to_dto(
+                                        episode, 
+                                        &season.id, 
+                                        &show.id, 
+                                        &collection.id, 
+                                        &season.name, 
+                                        &show.name, 
+                                        &state.config.jellyfin.server_id.clone().unwrap_or_default()
+                                    ));
+                                }
+                            }
+                            found = true;
+                            break;
+                        }
+                    }
+                    if found { break; }
                 }
             }
         }
