@@ -283,6 +283,8 @@ pub struct PlayingProgressRequest {
     pub audio_stream_index: Option<i32>,
     #[allow(dead_code)]
     pub subtitle_stream_index: Option<i32>,
+    #[allow(dead_code)]
+    pub play_session_id: Option<String>,
 }
 
 /// POST /Sessions/Playing/Progress
