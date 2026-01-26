@@ -1451,3 +1451,86 @@ pub async fn get_movie_recommendations(
     // TODO: Implement recommendation engine
     Json(vec![])
 }
+
+pub async fn get_suggestions(
+    State(state): State<AppState>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<QueryResult<BaseItemDto>> {
+    // Stub: Return latest items as suggestions for now
+    let limit = params.get("Limit")
+        .or_else(|| params.get("limit"))
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(12);
+        
+    // Reuse get_latest_items logic but return QueryResult
+    // We can just call the public get_latest_items if we construct the query, 
+    // but cleaner to just reimplement the simple fetch here.
+    
+    let mut all_items = Vec::new();
+    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
+    
+    // Get all collections
+    let collections = state.collections.list_collections().await;
+    for collection in collections {
+        let coll_id = &collection.id;
+        for movie in collection.movies.values() {
+            all_items.push((movie.date_created, convert_movie_to_dto(movie, coll_id, &server_id)));
+        }
+        for show in collection.shows.values() {
+            all_items.push((show.date_created, convert_show_to_dto(show, coll_id, &server_id)));
+        }
+    }
+    
+    // Sort by date descending
+    all_items.sort_by(|a, b| b.0.cmp(&a.0));
+    
+    // Take random slice or just top keys? 
+    // "Suggestions" usually implies "Similar", but without a similarity engine, 
+    // returning *something* valid is better than 404. 
+    // Let's return the latest items.
+    
+    let items: Vec<BaseItemDto> = all_items.into_iter()
+        .take(limit)
+        .map(|(_, dto)| dto)
+        .collect();
+        
+    Json(QueryResult {
+        items,
+        total_record_count: limit, // Approximation
+    })
+}
+
+pub async fn get_media_segments(
+    State(_state): State<AppState>,
+    Path(_item_id): Path<String>,
+) -> Json<QueryResult<serde_json::Value>> {
+    // Stub: No segments (Intro/Outro) known yet
+    Json(QueryResult {
+        items: vec![],
+        total_record_count: 0,
+    })
+}
+
+pub async fn get_grouping_options(
+    State(state): State<AppState>,
+) -> Json<Vec<serde_json::Value>> {
+    // Return list of collections as grouping options, similar to Go's behavior
+    let collections = state.collections.list_collections().await;
+    let options: Vec<serde_json::Value> = collections.iter().map(|c| {
+        serde_json::json!({
+            "Id": c.id,
+            "Name": c.name
+        })
+    }).collect();
+    
+    Json(options)
+}
+
+pub async fn get_item_user_data(
+    State(_state): State<AppState>,
+    Path((_user_id, item_id)): Path<(String, String)>,
+) -> Json<UserData> {
+    // Return default user data for now
+    Json(get_default_user_data(&item_id))
+}
+

@@ -300,3 +300,11 @@ Implement additional endpoints that exist in the Go server:
   - fetch images
   - stream a file
 
+### Milestone 10 — Implement Missing Handlers & Integration Testing
+**Outcome:** Behavior matches Go server for core flows; reduced 404s in traces.
+- Implement/Refine missing handlers:
+  - `/Items/Suggestions`: "More Like This" functionality (stub/basic).
+  - `/MediaSegments/{Id}`: Intro/Outro markers (stub).
+  - `/Items/{Id}/Images/{Type}/{Index}`: Support image indexing in routes.
+  - `/User...` Legacy routes: `UserItems`, `UserFavoriteItems`, `UserPlayedItems`, `GroupingOptions` (aliases).
+- Add integration tests for these points.

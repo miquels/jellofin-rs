@@ -113,6 +113,17 @@ pub fn build_router(state: AppState) -> Router {
         .route("/Sessions/Playing/Progress", axum::routing::post(crate::jellyfin::session_playing_progress))
         .route("/Sessions/Playing/Stopped", axum::routing::post(crate::jellyfin::session_playing_progress))
         .route("/Items/:item_id/Images/:image_type", get(image_handler))
+        .route("/Items/:item_id/Images/:image_type/:index", get(image_handler_indexed))
+        .route("/Items/Suggestions", get(crate::jellyfin::get_suggestions))
+        .route("/MediaSegments/:id", get(crate::jellyfin::get_media_segments))
+        // Legacy/Alias Routes
+        .route("/UserViews/GroupingOptions", get(crate::jellyfin::get_grouping_options))
+        .route("/UserItems/Resume", get(crate::jellyfin::get_resume_items))
+        .route("/UserItems/:id/Userdata", get(crate::jellyfin::get_item_user_data))
+        .route("/UserFavoriteItems/:id", axum::routing::post(crate::jellyfin::mark_favorite))
+        .route("/UserFavoriteItems/:id", axum::routing::delete(crate::jellyfin::unmark_favorite))
+        .route("/UserPlayedItems/:id", axum::routing::post(crate::jellyfin::mark_played))
+        .route("/UserPlayedItems/:id", axum::routing::delete(crate::jellyfin::mark_unplayed))
         .layer(axum::middleware::from_fn_with_state(
             state.clone(),
             crate::jellyfin::auth_middleware,
@@ -124,6 +135,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/System/Ping", get(system_ping_handler))
         .route("/robots.txt", get(robots_txt_handler))
         .route("/Images/:item_id/:image_type", get(image_handler))
+        .route("/Images/:item_id/:image_type/:index", get(image_handler_indexed))
         .merge(notflix_routes)
         .merge(jellyfin_routes)
         .fallback(fallback_handler);
@@ -268,4 +280,14 @@ struct ImageParams {
     width: Option<u32>,
     height: Option<u32>,
     quality: Option<u32>,
+}
+
+async fn image_handler_indexed(
+    state: State<AppState>,
+    Path((item_id, image_type, _index)): Path<(String, String, String)>,
+    query: Query<ImageParams>,
+    req: axum::http::Request<axum::body::Body>,
+) -> Result<Response, StatusCode> {
+    // Ignore index for now, as we don't support multiple images per type yet
+    image_handler(state, Path((item_id, image_type)), query, req).await
 }
