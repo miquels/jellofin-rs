@@ -27,6 +27,7 @@ pub trait ItemRepo: Send + Sync {
 #[async_trait]
 pub trait UserDataRepo: Send + Sync {
     async fn get_user_data(&self, user_id: &str, item_id: &str) -> DbResult<UserData>;
+    async fn get_user_data_resume(&self, user_id: &str, limit: Option<u32>) -> DbResult<Vec<UserData>>;
     async fn upsert_user_data(&self, data: &UserData) -> DbResult<()>;
     async fn get_favorites(&self, user_id: &str) -> DbResult<Vec<String>>;
     async fn get_recently_watched(&self, user_id: &str, limit: i32) -> DbResult<Vec<String>>;

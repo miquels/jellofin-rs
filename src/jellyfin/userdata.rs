@@ -23,60 +23,58 @@ pub async fn get_resume_items(
         .unwrap_or(10);
     
     let mut resume_items = Vec::new();
-    let collections = state.collections.list_collections().await;
     
-    for collection in &collections {
-        for movie in collection.movies.values() {
-            if let Ok(user_data) = state.db.get_user_data(&user_id, &movie.id).await {
-                if let Some(pos) = user_data.position {
-                    if pos > 0 && user_data.played != Some(true) {
-                        let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
-                        let mut dto = convert_movie_to_dto(movie, &collection.id, &server_id);
-                        dto.user_data = Some(UserData {
-                            playback_position_ticks: pos,
-                            played_percentage: user_data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
-                            play_count: user_data.playcount.unwrap_or(0),
-                            is_favorite: user_data.favorite.unwrap_or(false),
-                            last_played_date: user_data.timestamp.map(|t| t.to_rfc3339()),
-                            played: user_data.played.unwrap_or(false),
-                            key: movie.id.clone(),
-                            unplayed_item_count: None,
-                        });
-                        resume_items.push((pos, dto));
-                    }
+    if let Ok(db_user_data) = state.db.get_user_data_resume(&user_id, Some(limit as u32 * 2)).await {
+        let collections = state.collections.list_collections().await;
+
+        // Movies are easy and efficient to scan.
+        for collection in &collections {
+            for data in &db_user_data {
+                if let Some(movie) = collection.movies.get(&data.itemid) {
+                    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
+                    let mut dto = convert_movie_to_dto(movie, &collection.id, &server_id);
+                    dto.user_data = Some(UserData {
+                        playback_position_ticks: data.position.unwrap_or(0),
+                        played_percentage: data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
+                        play_count: data.playcount.unwrap_or(0),
+                        is_favorite: data.favorite.unwrap_or(false),
+                        last_played_date: data.timestamp.map(|t| t.to_rfc3339()),
+                        played: data.played.unwrap_or(false),
+                        key: data.itemid.clone(),
+                        unplayed_item_count: None,
+                    });
+                    resume_items.push(dto);
                 }
-            }
-        }
-        
-        for show in collection.shows.values() {
-            for season in show.seasons.values() {
-                for episode in season.episodes.values() {
-                    if let Ok(user_data) = state.db.get_user_data(&user_id, &episode.id).await {
-                        if let Some(pos) = user_data.position {
-                            if pos > 0 && user_data.played != Some(true) {
+            }   
+    
+            // Shows are more complex, as we need to scan the seasons and episodes.
+            for show in collection.shows.values() {
+                for season in show.seasons.values() {
+                    for episode in season.episodes.values() {
+                        for data in &db_user_data {
+                            if data.itemid == episode.id {
                                 let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
                                 let mut dto = convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name, &server_id);
-                                dto.user_data = Some(UserData {
-                                    playback_position_ticks: pos,
-                                    played_percentage: user_data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
-                                    play_count: user_data.playcount.unwrap_or(0),
-                                    is_favorite: user_data.favorite.unwrap_or(false),
-                                    last_played_date: user_data.timestamp.map(|t| t.to_rfc3339()),
-                                    played: user_data.played.unwrap_or(false),
-                                    key: episode.id.clone(),
-                                    unplayed_item_count: None,
-                                });
-                                resume_items.push((pos, dto));
+                                    dto.user_data = Some(UserData {
+                                        playback_position_ticks: data.position.unwrap_or(0),
+                                        played_percentage: data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
+                                        play_count: data.playcount.unwrap_or(0),
+                                        is_favorite: data.favorite.unwrap_or(false),
+                                        last_played_date: data.timestamp.map(|t| t.to_rfc3339()),
+                                        played: data.played.unwrap_or(false),
+                                        key: episode.id.clone(),
+                                        unplayed_item_count: None,
+                                    });
+                                    resume_items.push(dto);
+                                }
                             }
                         }
                     }
                 }
-            }
         }
     }
     
-    resume_items.sort_by(|a, b| b.0.cmp(&a.0));
-    let items: Vec<BaseItemDto> = resume_items.into_iter().take(limit).map(|(_, dto)| dto).collect();
+    let items: Vec<BaseItemDto> = resume_items.into_iter().take(limit).collect();
     let count = items.len();
     
     Ok(Json(QueryResult {
@@ -85,27 +83,19 @@ pub async fn get_resume_items(
     }))
 }
 
-pub async fn mark_played(
-    State(state): State<AppState>,
-    Path(item_id): Path<String>,
+async fn toggle_played(
+    state: AppState,
+    item_id: String,
     req: Request<axum::body::Body>,
+    is_played: bool,
 ) -> Result<Json<UserData>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
     
     let mut user_data = state.db.get_user_data(&user_id, &item_id).await
-        .unwrap_or_else(|_| crate::db::UserData {
-            userid: user_id.clone(),
-            itemid: item_id.clone(),
-            position: None,
-            playedpercentage: None,
-            played: None,
-            playcount: None,
-            favorite: None,
-            timestamp: Some(chrono::Utc::now()),
-        });
+        .unwrap_or_else(|_| get_default_db_user_data(&user_id, &item_id));
     
-    user_data.played = Some(true);
-    user_data.playcount = Some(user_data.playcount.unwrap_or(0) + 1);
+    user_data.played = Some(is_played);
+    user_data.playcount = Some(user_data.playcount.unwrap_or(0) + is_played as i32);
     user_data.position = None;
     user_data.timestamp = Some(chrono::Utc::now());
     
@@ -124,39 +114,46 @@ pub async fn mark_played(
     }))
 }
 
+pub async fn mark_played(
+    State(state): State<AppState>,
+    Path(item_id): Path<String>,
+    req: Request<axum::body::Body>,
+) -> Result<Json<UserData>, StatusCode> {
+    toggle_played(state, item_id, req, true).await
+}
+
 pub async fn mark_unplayed(
     State(state): State<AppState>,
     Path(item_id): Path<String>,
     req: Request<axum::body::Body>,
 ) -> Result<Json<UserData>, StatusCode> {
+    toggle_played(state, item_id, req, false).await
+}
+
+pub async fn toggle_favorite(
+    state: AppState,
+    item_id: String,
+    req: Request<axum::body::Body>,
+    is_favorite: bool,
+) -> Result<Json<UserData>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
     
     let mut user_data = state.db.get_user_data(&user_id, &item_id).await
-        .unwrap_or_else(|_| crate::db::UserData {
-            userid: user_id.clone(),
-            itemid: item_id.clone(),
-            position: None,
-            playedpercentage: None,
-            played: None,
-            playcount: None,
-            favorite: None,
-            timestamp: Some(chrono::Utc::now()),
-        });
+        .unwrap_or_else(|_| get_default_db_user_data(&user_id, &item_id));
     
-    user_data.played = Some(false);
-    user_data.position = None;
+    user_data.favorite = Some(is_favorite);
     user_data.timestamp = Some(chrono::Utc::now());
     
     state.db.upsert_user_data(&user_data).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     Ok(Json(UserData {
-        playback_position_ticks: 0,
-        played_percentage: 0.0,
+        playback_position_ticks: user_data.position.unwrap_or(0),
+        played_percentage: user_data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
         play_count: user_data.playcount.unwrap_or(0),
         is_favorite: user_data.favorite.unwrap_or(false),
         last_played_date: user_data.timestamp.map(|t| t.to_rfc3339()),
-        played: false,
+        played: user_data.played.unwrap_or(false),
         key: item_id,
         unplayed_item_count: None,
     }))
@@ -167,36 +164,7 @@ pub async fn mark_favorite(
     Path(item_id): Path<String>,
     req: Request<axum::body::Body>,
 ) -> Result<Json<UserData>, StatusCode> {
-    let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    let mut user_data = state.db.get_user_data(&user_id, &item_id).await
-        .unwrap_or_else(|_| crate::db::UserData {
-            userid: user_id.clone(),
-            itemid: item_id.clone(),
-            position: None,
-            playedpercentage: None,
-            played: None,
-            playcount: None,
-            favorite: None,
-            timestamp: Some(chrono::Utc::now()),
-        });
-    
-    user_data.favorite = Some(true);
-    user_data.timestamp = Some(chrono::Utc::now());
-    
-    state.db.upsert_user_data(&user_data).await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
-    Ok(Json(UserData {
-        playback_position_ticks: user_data.position.unwrap_or(0),
-        played_percentage: user_data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
-        play_count: user_data.playcount.unwrap_or(0),
-        is_favorite: true,
-        last_played_date: user_data.timestamp.map(|t| t.to_rfc3339()),
-        played: user_data.played.unwrap_or(false),
-        key: item_id,
-        unplayed_item_count: None,
-    }))
+        toggle_favorite(state, item_id, req, true).await
 }
 
 pub async fn unmark_favorite(
@@ -204,36 +172,7 @@ pub async fn unmark_favorite(
     Path(item_id): Path<String>,
     req: Request<axum::body::Body>,
 ) -> Result<Json<UserData>, StatusCode> {
-    let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    let mut user_data = state.db.get_user_data(&user_id, &item_id).await
-        .unwrap_or_else(|_| crate::db::UserData {
-            userid: user_id.clone(),
-            itemid: item_id.clone(),
-            position: None,
-            playedpercentage: None,
-            played: None,
-            playcount: None,
-            favorite: None,
-            timestamp: Some(chrono::Utc::now()),
-        });
-    
-    user_data.favorite = Some(false);
-    user_data.timestamp = Some(chrono::Utc::now());
-    
-    state.db.upsert_user_data(&user_data).await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
-    Ok(Json(UserData {
-        playback_position_ticks: user_data.position.unwrap_or(0),
-        played_percentage: user_data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
-        play_count: user_data.playcount.unwrap_or(0),
-        is_favorite: false,
-        last_played_date: user_data.timestamp.map(|t| t.to_rfc3339()),
-        played: user_data.played.unwrap_or(false),
-        key: item_id,
-        unplayed_item_count: None,
-    }))
+        toggle_favorite(state, item_id, req, false).await
 }
 
 pub async fn update_playback_position(
@@ -248,16 +187,7 @@ pub async fn update_playback_position(
         .and_then(|s| s.parse::<i64>().ok());
     
     let mut user_data = state.db.get_user_data(&user_id, &item_id).await
-        .unwrap_or_else(|_| crate::db::UserData {
-            userid: user_id.clone(),
-            itemid: item_id.clone(),
-            position: None,
-            playedpercentage: None,
-            played: None,
-            playcount: None,
-            favorite: None,
-            timestamp: Some(chrono::Utc::now()),
-        });
+        .unwrap_or_else(|_| get_default_db_user_data(&user_id, &item_id));
     
     user_data.position = position_ticks;
     user_data.timestamp = Some(chrono::Utc::now());
@@ -331,16 +261,7 @@ pub async fn session_playing_progress(
         .map_err(|_| StatusCode::BAD_REQUEST)?;
     
     let mut user_data = state.db.get_user_data(&user_id, &progress.item_id).await
-        .unwrap_or_else(|_| crate::db::UserData {
-            userid: user_id.clone(),
-            itemid: progress.item_id.clone(),
-            position: None,
-            playedpercentage: None,
-            played: None,
-            playcount: None,
-            favorite: None,
-            timestamp: Some(chrono::Utc::now()),
-        });
+        .unwrap_or_else(|_| get_default_db_user_data(&user_id, &progress.item_id));
     
     user_data.position = Some(progress.position_ticks);
     user_data.timestamp = Some(chrono::Utc::now());
@@ -529,6 +450,19 @@ pub async fn get_next_up(
         items,
         total_record_count: count,
     }))
+}
+
+pub(crate) fn get_default_db_user_data(user_id: &str,item_id: &str) -> crate::db::UserData {
+    crate::db::UserData {
+        userid: user_id.to_string(),
+        itemid: item_id.to_string(),
+        position: None,
+        playedpercentage: None,
+        played: None,
+        playcount: None,
+        favorite: None,
+        timestamp: Some(chrono::Utc::now()),
+    }
 }
 
 pub(crate) fn get_default_user_data(item_id: &str) -> UserData {

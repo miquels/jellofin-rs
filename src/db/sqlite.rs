@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+use std::fmt::Write;
+use std::str::FromStr;
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
-use std::collections::HashMap;
-use std::str::FromStr;
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info};
 
@@ -302,6 +304,43 @@ impl UserDataRepo for SqliteRepository {
         let mut cache = self.userdata_cache.write().await;
         cache.insert((user_id.to_string(), item_id.to_string()), user_data.clone());
 
+        Ok(user_data)
+    }
+
+    async fn get_user_data_resume(&self, user_id: &str, limit: Option<u32>) -> DbResult<Vec<UserData>> {
+
+        let mut query = "SELECT userid, itemid, position, playedpercentage, played, playcount, favorite, timestamp 
+            FROM playstate
+            WHERE userid = ?
+            AND position > 0
+            AND played != true
+            ORDER BY position DESC".to_string();
+        if let Some(limit) = limit {
+            let _ = write!(&mut query, " LIMIT {}", limit);
+        }
+
+        let results = sqlx::query_as::<_, (String, String, Option<i64>, Option<i32>, Option<bool>, Option<i32>, Option<bool>, Option<String>)>(&query)
+            .bind(user_id)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut user_data = Vec::new();
+        for result in results {
+            user_data.push(UserData {
+                userid: result.0,
+                itemid: result.1,
+                position: result.2,
+                playedpercentage: result.3,
+                played: result.4,
+                playcount: result.5,
+                favorite: result.6,
+                timestamp: result.7.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
+            });
+        }
+
+        if user_data.len() == 0 {
+            return Err(DbError::NotFound(format!("UserData not found: {}", user_id)));
+        }
         Ok(user_data)
     }
 
