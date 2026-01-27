@@ -5,10 +5,10 @@ use axum::{
     response::Response,
     Json,
 };
-use std::collections::HashMap;
 
 use crate::db::{AccessToken, User, UserRepo, AccessTokenRepo};
 use crate::server::AppState;
+use crate::util::QueryParams;
 use super::types::*;
 
 pub async fn authenticate_by_name(
@@ -174,7 +174,7 @@ pub async fn authenticate_by_name(
 
 pub async fn auth_middleware(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
     mut req: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
@@ -189,7 +189,7 @@ pub async fn auth_middleware(
     Ok(next.run(req).await)
 }
 
-fn extract_token<B>(req: &Request<B>, params: &HashMap<String, String>) -> Option<String> {
+fn extract_token<B>(req: &Request<B>, params: &QueryParams) -> Option<String> {
     if let Some(auth_header) = req.headers().get("Authorization") {
         if let Ok(auth_str) = auth_header.to_str() {
             if let Some(token) = parse_emby_auth(auth_str) {
@@ -219,7 +219,7 @@ fn extract_token<B>(req: &Request<B>, params: &HashMap<String, String>) -> Optio
     }
     
     if let Some(token) = params.get("ApiKey").or_else(|| params.get("api_key")) {
-        return Some(token.clone());
+        return Some(token.to_string());
     }
     
     None

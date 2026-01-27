@@ -5,12 +5,12 @@ use axum::{
 };
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::db::{PlaylistRepo, Playlist as DbPlaylist};
 use crate::server::AppState;
 use super::auth::get_user_id;
 use super::items::{convert_episode_to_dto, convert_movie_to_dto};
+use crate::util::QueryParams;
 use super::types::*;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -175,7 +175,7 @@ pub async fn get_playlist_items(
 pub async fn add_playlist_items(
     State(state): State<AppState>,
     Path(playlist_id): Path<String>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
     req: Request<axum::body::Body>,
 ) -> Result<StatusCode, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
@@ -187,7 +187,7 @@ pub async fn add_playlist_items(
         return Err(StatusCode::FORBIDDEN);
     }
     
-    let item_ids = params.get("Ids")
+    let item_ids = params.get("ids")
         .map(|ids| {
             ids.split(',')
                 .map(|id| id.trim().to_string())
@@ -205,7 +205,7 @@ pub async fn add_playlist_items(
 pub async fn delete_playlist_items(
     State(state): State<AppState>,
     Path(playlist_id): Path<String>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
     req: Request<axum::body::Body>,
 ) -> Result<StatusCode, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
@@ -217,7 +217,7 @@ pub async fn delete_playlist_items(
         return Err(StatusCode::FORBIDDEN);
     }
     
-    let item_ids = params.get("Ids")
+    let item_ids = params.get("ids")
         .map(|ids| {
             ids.split(',')
                 .map(|id| id.trim().to_string())

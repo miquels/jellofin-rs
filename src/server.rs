@@ -16,7 +16,7 @@ use tower_http::{
 use crate::collection::CollectionRepo;
 use crate::config::Config;
 use crate::db::SqliteRepository;
-use crate::util::imageresize::ImageResizer;
+use crate::util::ImageResizer;
 
 #[derive(Clone)]
 pub struct AppState {

@@ -1,49 +1,47 @@
+use std::collections::HashMap;
+
 use axum::{
     extract::{Path, Query, State},
     http::{Request, StatusCode},
     response::Response,
     Json,
 };
-use std::collections::HashMap;
 
+use crate::collection::item::MediaSource;
+use crate::collection::repo::FoundItem;
 use crate::db::UserDataRepo;
 use crate::server::AppState;
+use crate::util::QueryParams;
 use super::auth::get_user_id;
 use super::types::*;
 use super::userdata::get_default_user_data;
 
 pub async fn get_items(
     State(state): State<AppState>,
-    Query(params): Query<Vec<(String, String)>>,
+    Query(params): Query<QueryParams>,
     req: Request<axum::body::Body>,
 ) -> Json<QueryResult<BaseItemDto>> {
-    let get_param = |key: &str| params.iter()
-        .find(|(k, _)| k.eq_ignore_ascii_case(key))
-        .map(|(_, v)| v);
-
-    let parent_id = get_param("ParentId");
-    let recursive = get_param("Recursive")
+    let parent_id = params.get("parentId");
+    let recursive = params.get("recursive")
         .and_then(|s| s.parse::<bool>().ok())
         .unwrap_or(false);
-    let limit = get_param("Limit")
+    let limit = params.get("limit")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(100);
     
     let mut include_item_types = Vec::new();
-    for (key, value) in &params {
-        if key.eq_ignore_ascii_case("IncludeItemTypes") {
-            for t in value.split(',') {
-                let t = t.trim();
-                if !t.is_empty() {
-                    include_item_types.push(t.to_string());
-                }
+    if let Some(value) = params.get("includeItemTypes") {
+        for t in value.split(',') {
+            let t = t.trim();
+            if !t.is_empty() {
+                include_item_types.push(t.to_string());
             }
         }
     }
     
     let mut items = Vec::new();
     
-    let ids_param = get_param("Ids").or_else(|| get_param("ids"));
+    let ids_param = params.get("ids");
 
     if let Some(ids_str) = ids_param {
         let requested_ids: Vec<&str> = ids_str.split(',').map(|s| s.trim()).collect();
@@ -208,7 +206,7 @@ pub async fn get_items(
 pub async fn get_seasons(
     State(state): State<AppState>,
     Path(show_id): Path<String>,
-    Query(_params): Query<HashMap<String, String>>,
+    Query(_params): Query<QueryParams>,
 ) -> Result<Json<QueryResult<BaseItemDto>>, StatusCode> {
     let mut seasons_dto = Vec::new();
     let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
@@ -249,9 +247,9 @@ pub async fn get_seasons(
 pub async fn get_episodes(
     State(state): State<AppState>,
     Path(show_id): Path<String>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
 ) -> Result<Json<QueryResult<BaseItemDto>>, StatusCode> {
-    let season_id = params.get("SeasonId").or_else(|| params.get("seasonId"));
+    let season_id = params.get("seasonId");
     let mut episodes = Vec::new();
     let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
     
@@ -328,8 +326,6 @@ pub async fn get_item_by_id(
     fetch_item_by_id(&state, &item_id, user_id.as_deref()).await
 }
 
-use crate::collection::repo::FoundItem;
-
 async fn fetch_item_by_id(state: &AppState, item_id: &str, user_id: Option<&str>) -> Result<Json<BaseItemDto>, StatusCode> {
     let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
     
@@ -392,12 +388,11 @@ async fn fetch_item_by_id(state: &AppState, item_id: &str, user_id: Option<&str>
 
 pub async fn get_latest_items(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
     req: Request<axum::body::Body>,
 ) -> Json<Vec<BaseItemDto>> {
-    let parent_id = params.get("ParentId").or_else(|| params.get("parentId"));
-    let limit = params.get("Limit")
-        .or_else(|| params.get("limit"))
+    let parent_id = params.get("parentId");
+    let limit = params.get("limit")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(16);
     
@@ -479,306 +474,186 @@ pub async fn get_item_counts(State(state): State<AppState>) -> Json<ItemCounts> 
     })
 }
 
+fn convert_to_media_source_info(ms: &MediaSource, item_id: &str, runtime_ticks: Option<i64>) -> MediaSourceInfo {
+    let filename = ms.path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("video.mp4")
+        .to_string();
+    MediaSourceInfo {
+        id: item_id.to_string(),
+        path: filename.clone(),
+        name: filename,
+        source_type: "Default".to_string(),
+        protocol: Some("File".to_string()),
+        container: ms.path.extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("mp4")
+            .to_string(),
+        video_type: Some("VideoFile".to_string()),
+        size: Some(ms.size as i64),
+        bitrate: ms.bitrate.map(|b| b as i32),
+        run_time_ticks: runtime_ticks,
+        etag: Some(item_id.to_string()),
+        is_remote: false,
+        supports_direct_stream: true,
+        supports_direct_play: true,
+        supports_transcoding: false,
+        media_streams: Some(vec![
+            MediaStream {
+                stream_type: "Video".to_string(),
+                codec: "h264".to_string(),
+                language: None,
+                index: Some(0),
+                width: Some(1920),
+                height: Some(1080),
+                bit_rate: Some(5000000),
+                is_default: Some(true),
+                codec_tag: None,
+                aspect_ratio: Some("16:9".to_string()),
+                profile: Some("High".to_string()),
+                time_base: None,
+                ref_frames: None,
+                is_anamorphic: None,
+                bit_depth: Some(8),
+                display_title: Some("1080p H264".to_string()),
+                video_range: Some("SDR".to_string()),
+                video_range_type: Some("SDR".to_string()),
+                audio_spatial_format: None,
+                localized_default: None,
+                localized_external: None,
+                channel_layout: None,
+                channels: None,
+                sample_rate: None,
+                level: None,
+                average_frame_rate: Some(24.0),
+                real_frame_rate: Some(24.0),
+                title: None,
+                is_external: Some(false),
+                is_text_subtitle_stream: Some(false),
+                supports_external_stream: Some(false),
+                pixel_format: Some("yuv420p".to_string()),
+                is_interlaced: Some(false),
+                is_avc: Some(true),
+                is_hearing_impaired: Some(false),
+                is_forced: Some(false),
+            },
+            MediaStream {
+                stream_type: "Audio".to_string(),
+                codec: "aac".to_string(),
+                language: Some("eng".to_string()),
+                index: Some(1),
+                width: None,
+                height: None,
+                bit_rate: Some(128000),
+                is_default: Some(true),
+                codec_tag: None,
+                aspect_ratio: None,
+                profile: Some("LC".to_string()),
+                time_base: None,
+                ref_frames: None,
+                is_anamorphic: None,
+                bit_depth: None,
+                display_title: Some("AAC - Stereo".to_string()),
+                video_range: None,
+                video_range_type: None,
+                audio_spatial_format: None,
+                localized_default: None,
+                localized_external: None,
+                channel_layout: Some("stereo".to_string()),
+                channels: Some(2),
+                sample_rate: Some(48000),
+                level: None,
+                average_frame_rate: None,
+                real_frame_rate: None,
+                title: None,
+                is_external: Some(false),
+                is_text_subtitle_stream: Some(false),
+                supports_external_stream: Some(false),
+                pixel_format: None,
+                is_interlaced: Some(false),
+                is_avc: Some(false),
+                is_hearing_impaired: Some(false),
+                is_forced: Some(false),
+            },
+        ]),
+        default_audio_stream_index: Some(1),
+        direct_stream_url: Some(format!("/Videos/{}/stream?mediaSourceId={}&static=true", item_id, item_id)),
+        transcoding_sub_protocol: Some("http".to_string()),
+        required_http_headers: None,
+        read_at_native_framerate: None,
+        has_segments: None,
+        ignore_dts: None,
+        ignore_index: None,
+        gen_pts_input: None,
+        is_infinite_stream: None,
+        requires_opening: None,
+        requires_closing: None,
+        requires_looping: None,
+        supports_probing: Some(true),
+        media_attachments: None,
+        formats: None,
+    }
+}
+
 pub async fn get_playback_info(
     State(state): State<AppState>,
     Path(item_id): Path<String>,
 ) -> Result<Response, StatusCode> {
-    for collection in state.collections.list_collections().await {
-        if let Some(movie) = collection.movies.get(&item_id) {
-            let sources = movie.media_sources.iter()
-                .map(|ms| {
-                    let filename = ms.path.file_name()
-                        .and_then(|n| n.to_str())
-                        .unwrap_or("video.mp4")
-                        .to_string();
-                    MediaSourceInfo {
-                        id: item_id.clone(),
-                        path: filename.clone(),
-                        name: filename,
-                        source_type: "Default".to_string(),
-                        protocol: Some("File".to_string()),
-                        container: ms.path.extension()
-                            .and_then(|e| e.to_str())
-                            .unwrap_or("mp4")
-                            .to_string(),
-                        video_type: Some("VideoFile".to_string()),
-                        size: Some(ms.size as i64),
-                        bitrate: ms.bitrate.map(|b| b as i32),
-                        run_time_ticks: movie.runtime_ticks,
-                        etag: Some(item_id.clone()),
-                        is_remote: false,
-                        supports_direct_stream: true,
-                        supports_direct_play: true,
-                        supports_transcoding: false,
-                        media_streams: Some(vec![
-                            MediaStream {
-                                stream_type: "Video".to_string(),
-                                codec: "h264".to_string(),
-                                language: None,
-                                index: Some(0),
-                                width: Some(1920),
-                                height: Some(1080),
-                                bit_rate: Some(5000000),
-                                is_default: Some(true),
-                                codec_tag: None,
-                                aspect_ratio: Some("16:9".to_string()),
-                                profile: Some("High".to_string()),
-                                time_base: None,
-                                ref_frames: None,
-                                is_anamorphic: None,
-                                bit_depth: Some(8),
-                                display_title: Some("1080p H264".to_string()),
-                                video_range: Some("SDR".to_string()),
-                                video_range_type: Some("SDR".to_string()),
-                                audio_spatial_format: None,
-                                localized_default: None,
-                                localized_external: None,
-                                channel_layout: None,
-                                channels: None,
-                                sample_rate: None,
-                                level: None,
-                                average_frame_rate: Some(24.0),
-                                real_frame_rate: Some(24.0),
-                                title: None,
-                                is_external: Some(false),
-                                is_text_subtitle_stream: Some(false),
-                                supports_external_stream: Some(false),
-                                pixel_format: Some("yuv420p".to_string()),
-                                is_interlaced: Some(false),
-                                is_avc: Some(true),
-                                is_hearing_impaired: Some(false),
-                                is_forced: Some(false),
-                            },
-                            MediaStream {
-                                stream_type: "Audio".to_string(),
-                                codec: "aac".to_string(),
-                                language: Some("eng".to_string()),
-                                index: Some(1),
-                                width: None,
-                                height: None,
-                                bit_rate: Some(128000),
-                                is_default: Some(true),
-                                codec_tag: None,
-                                aspect_ratio: None,
-                                profile: Some("LC".to_string()),
-                                time_base: None,
-                                ref_frames: None,
-                                is_anamorphic: None,
-                                bit_depth: None,
-                                display_title: Some("AAC - Stereo".to_string()),
-                                video_range: None,
-                                video_range_type: None,
-                                audio_spatial_format: None,
-                                localized_default: None,
-                                localized_external: None,
-                                channel_layout: Some("stereo".to_string()),
-                                channels: Some(2),
-                                sample_rate: Some(48000),
-                                level: None,
-                                average_frame_rate: None,
-                                real_frame_rate: None,
-                                title: None,
-                                is_external: Some(false),
-                                is_text_subtitle_stream: Some(false),
-                                supports_external_stream: Some(false),
-                                pixel_format: None,
-                                is_interlaced: Some(false),
-                                is_avc: Some(false),
-                                is_hearing_impaired: Some(false),
-                                is_forced: Some(false),
-                            },
-                        ]),
-                        default_audio_stream_index: Some(1),
-                        direct_stream_url: Some(format!("/Videos/{}/stream?mediaSourceId={}&static=true", item_id, item_id)),
-                        transcoding_sub_protocol: Some("http".to_string()),
-                        required_http_headers: None,
-                        read_at_native_framerate: None,
-                        has_segments: None,
-                        ignore_dts: None,
-                        ignore_index: None,
-                        gen_pts_input: None,
-                        is_infinite_stream: None,
-                        requires_opening: None,
-                        requires_closing: None,
-                        requires_looping: None,
-                        supports_probing: Some(true),
-                        media_attachments: None,
-                        formats: None,
-                    }
-                })
-                .collect();
-            
-            let response = PlaybackInfoResponse { 
-                media_sources: sources,
-                play_session_id: "e3a869b7a901f8894de8ee65688db6c0".to_string(),
-            };
+    let mut sources = Vec::new();
 
-            let bytes = serde_json::to_vec(&response).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-            let len = bytes.len();
-            
-            return Response::builder()
-                .header(axum::http::header::CONTENT_TYPE, "application/json")
-                .header(axum::http::header::CONTENT_LENGTH, len.to_string())
-                .body(axum::body::Body::from(bytes))
-                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
+    for collection in state.collections.list_collections().await {
+
+        if let Some(movie) = collection.movies.get(&item_id) {
+            sources.extend(movie.media_sources.iter()
+                .map(|ms| convert_to_media_source_info(ms, &item_id, movie.runtime_ticks.clone()))
+            );
+
         }
         
-        for show in collection.shows.values() {
-            for season in show.seasons.values() {
-                for episode in season.episodes.values() {
-                    if episode.id == item_id {
-                        let sources = episode.media_sources.iter()
-                            .map(|ms| {
-                                let filename = ms.path.file_name()
-                                    .and_then(|n| n.to_str())
-                                    .unwrap_or("video.mp4")
-                                    .to_string();
-                                    MediaSourceInfo {
-                                    id: item_id.clone(),
-                                    path: filename.clone(),
-                                    name: filename,
-                                    source_type: "Default".to_string(),
-                                    protocol: Some("File".to_string()),
-                                    container: ms.path.extension()
-                                        .and_then(|e| e.to_str())
-                                        .unwrap_or("mp4")
-                                        .to_string(),
-                                    video_type: Some("VideoFile".to_string()),
-                                    size: Some(ms.size as i64),
-                                    bitrate: ms.bitrate.map(|b| b as i32),
-                                    run_time_ticks: episode.runtime_ticks,
-                                    etag: Some(item_id.clone()),
-                                    is_remote: false,
-                                    supports_direct_stream: true,
-                                    supports_direct_play: true,
-                                    supports_transcoding: false,
-                                    media_streams: Some(vec![
-                                        MediaStream {
-                                            stream_type: "Video".to_string(),
-                                            codec: "h264".to_string(),
-                                            language: None,
-                                            index: Some(0),
-                                            width: Some(1920),
-                                            height: Some(1080),
-                                            bit_rate: Some(5000000),
-                                            is_default: Some(true),
-                                            codec_tag: None,
-                                            aspect_ratio: Some("16:9".to_string()),
-                                            profile: Some("High".to_string()),
-                                            time_base: None,
-                                            ref_frames: None,
-                                            is_anamorphic: None,
-                                            bit_depth: Some(8),
-                                            display_title: Some("1080p H264".to_string()),
-                                            video_range: Some("SDR".to_string()),
-                                            video_range_type: Some("SDR".to_string()),
-                                            audio_spatial_format: None,
-                                            localized_default: None,
-                                            localized_external: None,
-                                            channel_layout: None,
-                                            channels: None,
-                                            sample_rate: None,
-                                            level: None,
-                                            average_frame_rate: Some(24.0),
-                                            real_frame_rate: Some(24.0),
-                                            title: None,
-                                            is_external: Some(false),
-                                            is_text_subtitle_stream: Some(false),
-                                            supports_external_stream: Some(false),
-                                            pixel_format: Some("yuv420p".to_string()),
-                                            is_interlaced: Some(false),
-                                            is_avc: Some(true),
-                                            is_hearing_impaired: Some(false),
-                                            is_forced: Some(false),
-                                        },
-                                        MediaStream {
-                                            stream_type: "Audio".to_string(),
-                                            codec: "aac".to_string(),
-                                            language: Some("eng".to_string()),
-                                            index: Some(1),
-                                            width: None,
-                                            height: None,
-                                            bit_rate: Some(128000),
-                                            is_default: Some(true),
-                                            codec_tag: None,
-                                            aspect_ratio: None,
-                                            profile: Some("LC".to_string()),
-                                            time_base: None,
-                                            ref_frames: None,
-                                            is_anamorphic: None,
-                                            bit_depth: None,
-                                            display_title: Some("AAC - Stereo".to_string()),
-                                            video_range: None,
-                                            video_range_type: None,
-                                            audio_spatial_format: None,
-                                            localized_default: None,
-                                            localized_external: None,
-                                            channel_layout: Some("stereo".to_string()),
-                                            channels: Some(2),
-                                            sample_rate: Some(48000),
-                                            level: None,
-                                            average_frame_rate: None,
-                                            real_frame_rate: None,
-                                            title: None,
-                                            is_external: Some(false),
-                                            is_text_subtitle_stream: Some(false),
-                                            supports_external_stream: Some(false),
-                                            pixel_format: None,
-                                            is_interlaced: Some(false),
-                                            is_avc: Some(false),
-                                            is_hearing_impaired: Some(false),
-                                            is_forced: Some(false),
-                                        },
-                                    ]),
-                                    default_audio_stream_index: Some(1),
-                                    direct_stream_url: Some(format!("/Videos/{}/stream?mediaSourceId={}&static=true", item_id, item_id)),
-                                    transcoding_sub_protocol: Some("http".to_string()),
-                                    required_http_headers: None,
-                                    read_at_native_framerate: None,
-                                    has_segments: None,
-                                    ignore_dts: None,
-                                    ignore_index: None,
-                                    gen_pts_input: None,
-                                    is_infinite_stream: None,
-                                    requires_opening: None,
-                                    requires_closing: None,
-                                    requires_looping: None,
-                                    supports_probing: Some(true),
-                                    media_attachments: None,
-                                    formats: None,
-                                }
-                            })
-                            .collect();
-                        
-                        let response = PlaybackInfoResponse { 
-                            media_sources: sources,
-                            play_session_id: "e3a869b7a901f8894de8ee65688db6c0".to_string(),
-                        };
-
-                        let bytes = serde_json::to_vec(&response).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-                        let len = bytes.len();
-                        
-                        return Response::builder()
-                            .header(axum::http::header::CONTENT_TYPE, "application/json")
-                            .header(axum::http::header::CONTENT_LENGTH, len.to_string())
-                            .body(axum::body::Body::from(bytes))
-                            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
+        if sources.len() == 0 {
+            for show in collection.shows.values() {
+                for season in show.seasons.values() {
+                    for episode in season.episodes.values() {
+                        if episode.id == item_id {
+                            sources.extend(episode.media_sources.iter()
+                                .map(|ms| convert_to_media_source_info(ms, &item_id, episode.runtime_ticks.clone()))
+                            );
+                        }
                     }
                 }
             }
         }
+
+        if sources.len() > 0 {
+            break;
+        }
     }
     
+    if sources.len() > 0 {
+        let response = PlaybackInfoResponse { 
+            media_sources: sources,
+            play_session_id: "e3a869b7a901f8894de8ee65688db6c0".to_string(),
+        };
+
+        let bytes = serde_json::to_vec(&response).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let len = bytes.len();
+        
+        return Response::builder()
+            .header(axum::http::header::CONTENT_TYPE, "application/json")
+            .header(axum::http::header::CONTENT_LENGTH, len.to_string())
+            .body(axum::body::Body::from(bytes))
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
     Err(StatusCode::NOT_FOUND)
 }
 
 pub async fn get_similar_items(
     State(state): State<AppState>,
     Path(item_id): Path<String>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
 ) -> Json<QueryResult<BaseItemDto>> {
-    let limit = params.get("Limit")
-        .or_else(|| params.get("limit"))
+    let limit = params.get("limit")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(20);
     
@@ -814,123 +689,7 @@ fn convert_media_sources(sources: &[crate::collection::MediaSource], item_id: &s
         return None;
     }
     
-    Some(sources.iter().map(|s| {
-        let filename = s.path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("video.mp4")
-            .to_string();
-        MediaSourceInfo {
-            id: item_id.to_string(),
-            path: filename.clone(),
-            name: filename,
-            source_type: "Default".to_string(),
-            protocol: Some("File".to_string()),
-            container: s.container.clone(),
-            video_type: Some("VideoFile".to_string()),
-            size: Some(s.size as i64),
-            bitrate: s.bitrate.map(|b| b as i32),
-            run_time_ticks: None,
-            etag: Some(item_id.to_string()),
-            is_remote: false,
-            supports_direct_stream: true,
-            supports_direct_play: true,
-            supports_transcoding: false,
-            media_streams: Some(vec![
-                crate::jellyfin::types::MediaStream {
-                    stream_type: "Video".to_string(),
-                    codec: "h264".to_string(),
-                    language: Some("und".to_string()),
-                    index: Some(0),
-                    width: Some(1920),
-                    height: Some(1080),
-                    bit_rate: Some(5000000),
-                    is_default: Some(true),
-                    codec_tag: Some("avc1".to_string()),
-                    aspect_ratio: Some("2.35:1".to_string()),
-                    profile: Some("High".to_string()),
-                    time_base: Some("1/16000".to_string()),
-                    ref_frames: Some(1),
-                    is_anamorphic: None,
-                    bit_depth: Some(8),
-                    display_title: Some("H264 - SDR".to_string()),
-                    video_range: Some("SDR".to_string()),
-                    video_range_type: Some("SDR".to_string()),
-                    audio_spatial_format: Some("None".to_string()),
-                    localized_default: None,
-                    localized_external: None,
-                    channel_layout: None,
-                    channels: None,
-                    sample_rate: None,
-                    level: Some(0.0),
-                    average_frame_rate: Some(24.0),
-                    real_frame_rate: Some(24.0),
-                    title: Some("H264".to_string()),
-                    is_external: Some(false),
-                    is_text_subtitle_stream: Some(false),
-                    supports_external_stream: Some(false),
-                    pixel_format: None,
-                    is_interlaced: Some(false),
-                    is_avc: Some(false),
-                    is_hearing_impaired: Some(false),
-                    is_forced: Some(false),
-                },
-                crate::jellyfin::types::MediaStream {
-                    stream_type: "Audio".to_string(),
-                    codec: "aac".to_string(),
-                    language: Some("und".to_string()),
-                    index: Some(1),
-                    width: None,
-                    height: None,
-                    bit_rate: Some(128000),
-                    is_default: Some(true),
-                    codec_tag: Some("mp4a".to_string()),
-                    aspect_ratio: None,
-                    profile: Some("LC".to_string()),
-                    time_base: Some("1/48000".to_string()),
-                    ref_frames: None,
-                    is_anamorphic: None,
-                    bit_depth: None,
-                    display_title: Some("Stereo - AAC".to_string()),
-                    video_range: Some("Unknown".to_string()),
-                    video_range_type: Some("Unknown".to_string()),
-                    audio_spatial_format: Some("None".to_string()),
-                    localized_default: Some("Default".to_string()),
-                    localized_external: Some("External".to_string()),
-                    channel_layout: Some("stereo".to_string()),
-                    channels: Some(2),
-                    sample_rate: Some(48000),
-                    level: Some(0.0),
-                    average_frame_rate: None,
-                    real_frame_rate: None,
-                    title: Some("Stereo".to_string()),
-                    is_external: Some(false),
-                    is_text_subtitle_stream: Some(false),
-                    supports_external_stream: Some(false),
-                    pixel_format: None,
-                    is_interlaced: Some(false),
-                    is_avc: Some(false),
-                    is_hearing_impaired: Some(false),
-                    is_forced: Some(false),
-                },
-            ]),
-            default_audio_stream_index: Some(1),
-            direct_stream_url: Some(format!("/Videos/{}/stream?mediaSourceId={}&static=true", item_id, item_id)),
-            transcoding_sub_protocol: Some("http".to_string()),
-            required_http_headers: Some(std::collections::HashMap::new()),
-            read_at_native_framerate: Some(false),
-            has_segments: Some(false),
-            ignore_dts: Some(false),
-            ignore_index: Some(false),
-            gen_pts_input: Some(false),
-            is_infinite_stream: Some(false),
-            requires_opening: Some(false),
-            requires_closing: Some(false),
-            requires_looping: Some(false),
-            supports_probing: Some(true),
-            media_attachments: Some(vec![]),
-            formats: Some(vec![]),
-        }
-    }).collect())
+    Some(sources.iter().map(|ms| convert_to_media_source_info(ms, item_id, None)).collect())
 }
 
 pub fn convert_movie_to_dto(movie: &crate::collection::Movie, parent_id: &str, server_id: &str) -> BaseItemDto {

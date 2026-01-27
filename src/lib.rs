@@ -56,7 +56,7 @@ pub async fn run(config_path: &str, debug_logs: bool) -> Result<(), ServerError>
     collection_repo.clone().start_background_scan(3600);
     
     let cache_dir = std::path::PathBuf::from("./cache/images");
-    let image_resizer = Arc::new(util::imageresize::ImageResizer::new(cache_dir)
+    let image_resizer = Arc::new(util::ImageResizer::new(cache_dir)
         .map_err(|e| ServerError::Server(format!("Failed to create image resizer: {}", e)))?);
     
     let address = config.listen.address.as_deref().unwrap_or("[::]");

@@ -1,12 +1,14 @@
+use std::collections::HashSet;
+
 use axum::{
     extract::{Query, State},
     http::StatusCode,
     Json,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
 
 use crate::server::AppState;
+use crate::util::QueryParams;
 use super::types::NameIdPair;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -21,7 +23,7 @@ pub struct QueryResultNameIdPair {
 
 pub async fn get_genres(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
 ) -> Result<Json<QueryResultNameIdPair>, StatusCode> {
     let mut genres = HashSet::new();
     
@@ -49,11 +51,11 @@ pub async fn get_genres(
     
     genre_list.sort_by(|a, b| a.name.cmp(&b.name));
     
-    let start_index = params.get("StartIndex")
+    let start_index = params.get("startIndex")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(0);
     
-    let limit = params.get("Limit")
+    let limit = params.get("limit")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(genre_list.len());
     
@@ -73,7 +75,7 @@ pub async fn get_genres(
 
 pub async fn get_studios(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
 ) -> Result<Json<QueryResultNameIdPair>, StatusCode> {
     let mut studios = HashSet::new();
     
@@ -101,11 +103,11 @@ pub async fn get_studios(
     
     studio_list.sort_by(|a, b| a.name.cmp(&b.name));
     
-    let start_index = params.get("StartIndex")
+    let start_index = params.get("startIndex")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(0);
     
-    let limit = params.get("Limit")
+    let limit = params.get("limit")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(studio_list.len());
     
@@ -125,7 +127,7 @@ pub async fn get_studios(
 
 pub async fn get_persons(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
 ) -> Result<Json<QueryResultNameIdPair>, StatusCode> {
     let mut persons = HashSet::new();
     
@@ -153,11 +155,11 @@ pub async fn get_persons(
     
     person_list.sort_by(|a, b| a.name.cmp(&b.name));
     
-    let start_index = params.get("StartIndex")
+    let start_index = params.get("startIndex")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(0);
     
-    let limit = params.get("Limit")
+    let limit = params.get("limit")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(person_list.len());
     

@@ -3,23 +3,22 @@ use axum::{
     http::{Request, StatusCode},
     Json,
 };
-use std::collections::HashMap;
 
 use crate::db::UserDataRepo;
 use crate::server::AppState;
+use crate::util::QueryParams;
 use super::auth::get_user_id;
 use super::items::{convert_movie_to_dto, convert_episode_to_dto};
 use super::types::*;
 
 pub async fn get_resume_items(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
     req: Request<axum::body::Body>,
 ) -> Result<Json<QueryResult<BaseItemDto>>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
     
-    let limit = params.get("Limit")
-        .or_else(|| params.get("limit"))
+    let limit = params.get("limit")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(10);
     
@@ -240,13 +239,12 @@ pub async fn unmark_favorite(
 pub async fn update_playback_position(
     State(state): State<AppState>,
     Path(item_id): Path<String>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
     req: Request<axum::body::Body>,
 ) -> Result<StatusCode, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
     
-    let position_ticks = params.get("PositionTicks")
-        .or_else(|| params.get("positionTicks"))
+    let position_ticks = params.get("positionTicks")
         .and_then(|s| s.parse::<i64>().ok());
     
     let mut user_data = state.db.get_user_data(&user_id, &item_id).await
@@ -481,17 +479,16 @@ async fn find_next_up_for_show(
 
 pub async fn get_next_up(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
     req: Request<axum::body::Body>,
 ) -> Result<Json<QueryResult<BaseItemDto>>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
     
-    let limit = params.get("Limit")
-        .or_else(|| params.get("limit"))
+    let limit = params.get("limit")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(10);
         
-    let series_id = params.get("SeriesId").or_else(|| params.get("seriesId"));
+    let series_id = params.get("seriesId");
     
     let mut next_up_items = Vec::new();
     let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();

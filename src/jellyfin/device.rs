@@ -5,10 +5,10 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::db::{AccessTokenRepo, UserRepo};
 use crate::server::AppState;
+use crate::util::QueryParams;
 use super::auth::get_user_id;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -105,7 +105,7 @@ pub async fn get_devices(
 
 pub async fn delete_device(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
     req: Request<axum::body::Body>,
 ) -> Result<StatusCode, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
@@ -129,7 +129,7 @@ pub async fn delete_device(
 
 pub async fn get_device_info(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
     req: Request<axum::body::Body>,
 ) -> Result<Json<DeviceItem>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
@@ -168,7 +168,7 @@ pub async fn get_device_info(
 
 pub async fn get_device_options(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
     req: Request<axum::body::Body>,
 ) -> Result<Json<DeviceOptions>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;

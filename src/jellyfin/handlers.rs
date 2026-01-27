@@ -7,10 +7,9 @@ use axum::{
 use tower::ServiceExt;
 use tower_http::services::ServeFile;
 
-use std::collections::HashMap;
-
 use crate::collection::find_image_path;
 use crate::server::AppState;
+use crate::util::QueryParams;
 use super::types::*;
 use super::items::{convert_movie_to_dto, convert_show_to_dto};
 
@@ -41,11 +40,10 @@ pub async fn display_preferences() -> Json<serde_json::Value> {
 
 pub async fn search_hints(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
 ) -> Json<QueryResult<SearchHint>> {
     let search_term = params.get("SearchTerm")
         .or_else(|| params.get("searchTerm"))
-        .map(|s| s.as_str())
         .unwrap_or("");
     
     let limit = params.get("Limit")
@@ -74,7 +72,7 @@ pub async fn search_hints(
 
 pub async fn get_movie_recommendations(
     State(_state): State<AppState>,
-    Query(_params): Query<HashMap<String, String>>,
+    Query(_params): Query<QueryParams>,
     _req: http::Request<axum::body::Body>,
 ) -> Json<Vec<serde_json::Value>> {
     // Stub implementation - return empty list
@@ -84,7 +82,7 @@ pub async fn get_movie_recommendations(
 
 pub async fn get_suggestions(
     State(state): State<AppState>,
-    Query(params): Query<HashMap<String, String>>,
+    Query(params): Query<QueryParams>,
 ) -> Json<QueryResult<BaseItemDto>> {
     // Stub: Return latest items as suggestions for now
     let limit = params.get("Limit")
