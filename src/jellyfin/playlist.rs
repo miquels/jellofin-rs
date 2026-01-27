@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use crate::db::{PlaylistRepo, Playlist as DbPlaylist};
 use crate::server::AppState;
 use super::auth::get_user_id;
-use super::handlers::convert_movie_to_dto;
+use super::items::{convert_episode_to_dto, convert_movie_to_dto};
 use super::types::*;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -147,7 +147,7 @@ pub async fn get_playlist_items(
                     for episode in season.episodes.values() {
                         if &episode.id == item_id {
                             let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
-                            items.push(super::handlers::convert_episode_to_dto(
+                            items.push(convert_episode_to_dto(
                                 episode,
                                 &season.id,
                                 &show.id,

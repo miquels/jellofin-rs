@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use crate::db::UserDataRepo;
 use crate::server::AppState;
 use super::auth::get_user_id;
-use super::handlers::{convert_movie_to_dto, convert_episode_to_dto};
+use super::items::{convert_movie_to_dto, convert_episode_to_dto};
 use super::types::*;
 
 pub async fn get_resume_items(
@@ -532,4 +532,25 @@ pub async fn get_next_up(
         items,
         total_record_count: count,
     }))
+}
+
+pub(crate) fn get_default_user_data(item_id: &str) -> UserData {
+    UserData {
+        playback_position_ticks: 0,
+        played_percentage: 0.0,
+        play_count: 0,
+        is_favorite: false,
+        last_played_date: Some("0001-01-01T00:00:00Z".to_string()),
+        played: false,
+        key: item_id.to_string(),
+        unplayed_item_count: Some(0),
+    }
+}
+
+pub async fn get_item_user_data(
+    State(_state): State<AppState>,
+    Path(item_id): Path<String>,
+) -> Json<UserData> {
+    // Return default user data for now
+    Json(get_default_user_data(&item_id))
 }
