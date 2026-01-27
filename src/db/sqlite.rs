@@ -50,11 +50,6 @@ impl SqliteRepository {
         tokio::spawn(async move {
             repo_clone.token_flush_loop().await;
         });
-
-        let repo_clone = Arc::clone(&self);
-        tokio::spawn(async move {
-            repo_clone.userdata_flush_loop().await;
-        });
     }
 
     async fn token_flush_loop(&self) {
@@ -63,16 +58,6 @@ impl SqliteRepository {
             interval.tick().await;
             if let Err(e) = self.flush_token_cache().await {
                 error!("Failed to flush token cache: {}", e);
-            }
-        }
-    }
-
-    async fn userdata_flush_loop(&self) {
-        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
-        loop {
-            interval.tick().await;
-            if let Err(e) = self.flush_userdata_cache().await {
-                error!("Failed to flush userdata cache: {}", e);
             }
         }
     }
@@ -92,26 +77,6 @@ impl SqliteRepository {
             .bind(&token.applicationname)
             .bind(&token.applicationversion)
             .bind(token.created.as_ref().map(|dt| dt.to_rfc3339()))
-            .execute(&self.pool)
-            .await?;
-        }
-        Ok(())
-    }
-
-    async fn flush_userdata_cache(&self) -> DbResult<()> {
-        let cache = self.userdata_cache.read().await;
-        for ((user_id, item_id), data) in cache.iter() {
-            sqlx::query(
-                "INSERT OR REPLACE INTO playstate 
-                (userid, itemid, position, playcount, favorite, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?)"
-            )
-            .bind(user_id)
-            .bind(item_id)
-            .bind(data.position)
-            .bind(data.playcount)
-            .bind(data.favorite)
-            .bind(data.timestamp.as_ref().map(|dt| dt.to_rfc3339()))
             .execute(&self.pool)
             .await?;
         }
@@ -343,6 +308,21 @@ impl UserDataRepo for SqliteRepository {
     async fn upsert_user_data(&self, data: &UserData) -> DbResult<()> {
         let mut cache = self.userdata_cache.write().await;
         cache.insert((data.userid.clone(), data.itemid.clone()), data.clone());
+        
+        sqlx::query(
+            "INSERT OR REPLACE INTO playstate 
+            (userid, itemid, position, playcount, favorite, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?)"
+        )
+        .bind(&data.userid)
+        .bind(&data.itemid)
+        .bind(data.position)
+        .bind(data.playcount)
+        .bind(data.favorite)
+        .bind(data.timestamp.as_ref().map(|dt| dt.to_rfc3339()))
+        .execute(&self.pool)
+        .await?;
+        
         Ok(())
     }
 
