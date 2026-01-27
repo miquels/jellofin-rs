@@ -26,13 +26,13 @@ pub async fn get_resume_items(
     
     if let Ok(db_user_data) = state.db.get_user_data_resume(&user_id, Some(limit as u32 * 2)).await {
         let collections = state.collections.list_collections().await;
+        let server_id = state.config.jellyfin.server_id.as_deref().unwrap_or_default();
 
         // Movies are easy and efficient to scan.
         for collection in &collections {
             for data in &db_user_data {
                 if let Some(movie) = collection.movies.get(&data.itemid) {
-                    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
-                    let mut dto = convert_movie_to_dto(movie, &collection.id, &server_id);
+                    let mut dto = convert_movie_to_dto(movie, &collection.id, server_id);
                     dto.user_data = Some(UserData {
                         playback_position_ticks: data.position.unwrap_or(0),
                         played_percentage: data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
@@ -53,8 +53,7 @@ pub async fn get_resume_items(
                     for episode in season.episodes.values() {
                         for data in &db_user_data {
                             if data.itemid == episode.id {
-                                let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
-                                let mut dto = convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name, &server_id);
+                                let mut dto = convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name, server_id);
                                     dto.user_data = Some(UserData {
                                         playback_position_ticks: data.position.unwrap_or(0),
                                         played_percentage: data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
@@ -192,34 +191,6 @@ pub async fn update_playback_position(
     user_data.position = position_ticks;
     user_data.timestamp = Some(chrono::Utc::now());
     
-    // Check if should be marked as played
-    // Criteria: > 90% watched OR < 3 minutes remaining
-    if let Some(pos) = position_ticks {
-        if let Some((_, item)) = state.collections.get_item(&item_id) {
-             let runtime_ticks = match item {
-                 crate::collection::repo::FoundItem::Movie(m) => m.runtime_ticks,
-                 crate::collection::repo::FoundItem::Episode(e) => e.runtime_ticks,
-                 _ => None,
-             };
-             
-             if let Some(total) = runtime_ticks {
-                 if total > 0 {
-                     let percentage = pos as f64 / total as f64;
-                     let remaining = total - pos;
-                     
-                     // 3 minutes in ticks (10,000 ticks per ms -> 10,000,000 per sec)
-                     let three_mins_ticks = 3 * 60 * 10_000_000;
-                     
-                     if percentage > 0.9 || remaining < three_mins_ticks {
-                         user_data.played = Some(true);
-                         user_data.playcount = Some(user_data.playcount.unwrap_or(0) + 1);
-                         user_data.position = None; // Reset position when fully watched
-                     }
-                 }
-             }
-        }
-    }
-    
     state.db.upsert_user_data(&user_data).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
@@ -265,33 +236,6 @@ pub async fn session_playing_progress(
     
     user_data.position = Some(progress.position_ticks);
     user_data.timestamp = Some(chrono::Utc::now());
-    
-    // Check if should be marked as played
-    // Criteria: > 90% watched OR < 3 minutes remaining
-    if let Some((_, item)) = state.collections.get_item(&progress.item_id) {
-         let runtime_ticks = match item {
-             crate::collection::repo::FoundItem::Movie(m) => m.runtime_ticks,
-             crate::collection::repo::FoundItem::Episode(e) => e.runtime_ticks,
-             _ => None,
-         };
-         
-         if let Some(total) = runtime_ticks {
-             if total > 0 {
-                 let pos = progress.position_ticks;
-                 let percentage = pos as f64 / total as f64;
-                 let remaining = total - pos;
-                 
-                 // 3 minutes in ticks (10,000 ticks per ms -> 10,000,000 per sec)
-                 let three_mins_ticks = 3 * 60 * 10_000_000;
-                 
-                 if percentage > 0.9 || remaining < three_mins_ticks {
-                     user_data.played = Some(true);
-                     user_data.playcount = Some(user_data.playcount.unwrap_or(0) + 1);
-                     user_data.position = None; // Reset position when fully watched
-                 }
-             }
-         }
-    }
     
     state.db.upsert_user_data(&user_data).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -412,14 +356,14 @@ pub async fn get_next_up(
     let series_id = params.get("seriesId");
     
     let mut next_up_items = Vec::new();
-    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
+    let server_id = state.config.jellyfin.server_id.as_deref().unwrap_or_default();
     
     if let Some(sid) = series_id {
         // Direct lookup
         if let Some((collection_id, item)) = state.collections.get_item(sid) {
             if let crate::collection::repo::FoundItem::Show(show) = item {
                 if let Some(collection) = state.collections.get_collection(&collection_id).await {
-                     if let Some((_, dto)) = find_next_up_for_show(&state, &user_id, &show, &collection, &server_id, true).await {
+                     if let Some((_, dto)) = find_next_up_for_show(&state, &user_id, &show, &collection, server_id, true).await {
                          next_up_items.push(dto);
                      }
                 }
