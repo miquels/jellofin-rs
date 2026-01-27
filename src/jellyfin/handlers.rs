@@ -6,7 +6,7 @@ use axum::{
 };
 use std::collections::HashMap;
 
-use crate::db::UserRepo;
+use crate::db::{UserRepo, UserDataRepo};
 use crate::server::AppState;
 use super::auth::get_user_id;
 use super::types::*;
@@ -632,30 +632,32 @@ pub async fn get_episodes(
 
 pub async fn get_user_item_by_id(
     State(state): State<AppState>,
-    Path((_user_id, item_id)): Path<(String, String)>,
+    Path((user_id, item_id)): Path<(String, String)>,
 ) -> Result<Json<BaseItemDto>, StatusCode> {
-    fetch_item_by_id(&state, &item_id).await
+    fetch_item_by_id(&state, &item_id, Some(&user_id)).await
 }
 
 pub async fn get_item_by_id(
     State(state): State<AppState>,
     Path(item_id): Path<String>,
+    req: Request<axum::body::Body>,
 ) -> Result<Json<BaseItemDto>, StatusCode> {
-    fetch_item_by_id(&state, &item_id).await
+    let user_id = get_user_id(&req);
+    fetch_item_by_id(&state, &item_id, user_id.as_deref()).await
 }
 
 use crate::collection::repo::FoundItem;
 
-async fn fetch_item_by_id(state: &AppState, item_id: &str) -> Result<Json<BaseItemDto>, StatusCode> {
+async fn fetch_item_by_id(state: &AppState, item_id: &str, user_id: Option<&str>) -> Result<Json<BaseItemDto>, StatusCode> {
     let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
     
     if let Some((collection_id, item)) = state.collections.get_item(item_id) {
-        match item {
+        let mut dto = match item {
             FoundItem::Movie(movie) => {
-                return Ok(Json(convert_movie_to_dto(&movie, &collection_id, &server_id)));
+                convert_movie_to_dto(&movie, &collection_id, &server_id)
             }
             FoundItem::Show(show) => {
-                return Ok(Json(convert_show_to_dto(&show, &collection_id, &server_id)));
+                convert_show_to_dto(&show, &collection_id, &server_id)
             }
             FoundItem::Season(season) => {
                 // We need show name
@@ -664,7 +666,7 @@ async fn fetch_item_by_id(state: &AppState, item_id: &str) -> Result<Json<BaseIt
                 } else {
                     String::new()
                 };
-                return Ok(Json(convert_season_to_dto(&season, &season.show_id, &collection_id, &show_name, &server_id)));
+                convert_season_to_dto(&season, &season.show_id, &collection_id, &show_name, &server_id)
             }
             FoundItem::Episode(episode) => {
                 // We need show name and season name
@@ -680,9 +682,27 @@ async fn fetch_item_by_id(state: &AppState, item_id: &str) -> Result<Json<BaseIt
                     String::new()
                 };
 
-                return Ok(Json(convert_episode_to_dto(&episode, &episode.season_id, &episode.show_id, &collection_id, &season_name, &show_name, &server_id)));
+                convert_episode_to_dto(&episode, &episode.season_id, &episode.show_id, &collection_id, &season_name, &show_name, &server_id)
+            }
+        };
+
+        if let Some(uid) = user_id {
+            if let Ok(user_data) = state.db.get_user_data(uid, item_id).await {
+                 let data = UserData {
+                    playback_position_ticks: user_data.position.unwrap_or(0),
+                    played_percentage: user_data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
+                    play_count: user_data.playcount.unwrap_or(0),
+                    is_favorite: user_data.favorite.unwrap_or(false),
+                    last_played_date: user_data.timestamp.map(|t: chrono::DateTime<chrono::Utc>| t.to_rfc3339()),
+                    played: user_data.played.unwrap_or(false),
+                    key: item_id.to_string(),
+                    unplayed_item_count: None,
+                };
+                dto.user_data = Some(data);
             }
         }
+
+        return Ok(Json(dto));
     }
     
     Err(StatusCode::NOT_FOUND)
