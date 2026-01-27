@@ -352,6 +352,7 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
 pub async fn get_items(
     State(state): State<AppState>,
     Query(params): Query<Vec<(String, String)>>,
+    req: Request<axum::body::Body>,
 ) -> Json<QueryResult<BaseItemDto>> {
     let get_param = |key: &str| params.iter()
         .find(|(k, _)| k.eq_ignore_ascii_case(key))
@@ -518,6 +519,23 @@ pub async fn get_items(
         }
     }
     
+    if let Some(user_id) = get_user_id(&req) {
+        for item in &mut items {
+            if let Ok(user_data) = state.db.get_user_data(&user_id, &item.id).await {
+                item.user_data = Some(UserData {
+                    playback_position_ticks: user_data.position.unwrap_or(0),
+                    played_percentage: user_data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
+                    play_count: user_data.playcount.unwrap_or(0),
+                    is_favorite: user_data.favorite.unwrap_or(false),
+                    last_played_date: user_data.timestamp.map(|t| t.to_rfc3339()),
+                    played: user_data.played.unwrap_or(false),
+                    key: item.id.clone(),
+                    unplayed_item_count: None,
+                });
+            }
+        }
+    }
+
     Json(QueryResult {
         total_record_count: items.len(),
         items,
@@ -711,6 +729,7 @@ async fn fetch_item_by_id(state: &AppState, item_id: &str, user_id: Option<&str>
 pub async fn get_latest_items(
     State(state): State<AppState>,
     Query(params): Query<HashMap<String, String>>,
+    req: Request<axum::body::Body>,
 ) -> Json<Vec<BaseItemDto>> {
     let parent_id = params.get("ParentId").or_else(|| params.get("parentId"));
     let limit = params.get("Limit")
@@ -747,7 +766,24 @@ pub async fn get_latest_items(
     
     // Sort by date descending and take limit
     all_items.sort_by(|a, b| b.0.cmp(&a.0));
-    let items = all_items.into_iter().take(limit).map(|(_, dto)| dto).collect();
+    let mut items: Vec<BaseItemDto> = all_items.into_iter().take(limit).map(|(_, dto)| dto).collect();
+    
+    if let Some(user_id) = get_user_id(&req) {
+        for item in &mut items {
+            if let Ok(user_data) = state.db.get_user_data(&user_id, &item.id).await {
+                item.user_data = Some(UserData {
+                    playback_position_ticks: user_data.position.unwrap_or(0),
+                    played_percentage: user_data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
+                    play_count: user_data.playcount.unwrap_or(0),
+                    is_favorite: user_data.favorite.unwrap_or(false),
+                    last_played_date: user_data.timestamp.map(|t| t.to_rfc3339()),
+                    played: user_data.played.unwrap_or(false),
+                    key: item.id.clone(),
+                    unplayed_item_count: None,
+                });
+            }
+        }
+    }
     
     Json(items)
 }
