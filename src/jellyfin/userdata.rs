@@ -264,6 +264,34 @@ pub async fn update_playback_position(
     user_data.position = position_ticks;
     user_data.timestamp = Some(chrono::Utc::now());
     
+    // Check if should be marked as played
+    // Criteria: > 90% watched OR < 3 minutes remaining
+    if let Some(pos) = position_ticks {
+        if let Some((_, item)) = state.collections.get_item(&item_id) {
+             let runtime_ticks = match item {
+                 crate::collection::repo::FoundItem::Movie(m) => m.runtime_ticks,
+                 crate::collection::repo::FoundItem::Episode(e) => e.runtime_ticks,
+                 _ => None,
+             };
+             
+             if let Some(total) = runtime_ticks {
+                 if total > 0 {
+                     let percentage = pos as f64 / total as f64;
+                     let remaining = total - pos;
+                     
+                     // 3 minutes in ticks (10,000 ticks per ms -> 10,000,000 per sec)
+                     let three_mins_ticks = 3 * 60 * 10_000_000;
+                     
+                     if percentage > 0.9 || remaining < three_mins_ticks {
+                         user_data.played = Some(true);
+                         user_data.playcount = Some(user_data.playcount.unwrap_or(0) + 1);
+                         user_data.position = None; // Reset position when fully watched
+                     }
+                 }
+             }
+        }
+    }
+    
     state.db.upsert_user_data(&user_data).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
@@ -319,10 +347,136 @@ pub async fn session_playing_progress(
     user_data.position = Some(progress.position_ticks);
     user_data.timestamp = Some(chrono::Utc::now());
     
+    // Check if should be marked as played
+    // Criteria: > 90% watched OR < 3 minutes remaining
+    if let Some((_, item)) = state.collections.get_item(&progress.item_id) {
+         let runtime_ticks = match item {
+             crate::collection::repo::FoundItem::Movie(m) => m.runtime_ticks,
+             crate::collection::repo::FoundItem::Episode(e) => e.runtime_ticks,
+             _ => None,
+         };
+         
+         if let Some(total) = runtime_ticks {
+             if total > 0 {
+                 let pos = progress.position_ticks;
+                 let percentage = pos as f64 / total as f64;
+                 let remaining = total - pos;
+                 
+                 // 3 minutes in ticks (10,000 ticks per ms -> 10,000,000 per sec)
+                 let three_mins_ticks = 3 * 60 * 10_000_000;
+                 
+                 if percentage > 0.9 || remaining < three_mins_ticks {
+                     user_data.played = Some(true);
+                     user_data.playcount = Some(user_data.playcount.unwrap_or(0) + 1);
+                     user_data.position = None; // Reset position when fully watched
+                 }
+             }
+         }
+    }
+    
     state.db.upsert_user_data(&user_data).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
     Ok(StatusCode::NO_CONTENT)
+}
+
+// Helper to determine the Next Up item for a specific show
+async fn find_next_up_for_show(
+    state: &AppState,
+    user_id: &str,
+    show: &crate::collection::Show,
+    collection: &crate::collection::Collection,
+    server_id: &str,
+    force_first_if_unwatched: bool,
+) -> Option<(chrono::DateTime<chrono::Utc>, BaseItemDto)> {
+    let mut last_watched_season = 0;
+    let mut last_watched_episode = 0;
+    let mut found_watched = false;
+    let mut last_played_date = chrono::DateTime::<chrono::Utc>::MIN_UTC;
+    
+    // 1. Find the highest watched episode index
+    for season in show.seasons.values() {
+        for episode in season.episodes.values() {
+            if let Ok(user_data) = state.db.get_user_data(user_id, &episode.id).await {
+                if user_data.played == Some(true) {
+                    if episode.season_number > last_watched_season || 
+                       (episode.season_number == last_watched_season && episode.episode_number > last_watched_episode) {
+                        last_watched_season = episode.season_number;
+                        last_watched_episode = episode.episode_number;
+                        found_watched = true;
+                        if let Some(ts) = user_data.timestamp {
+                            if ts > last_played_date {
+                                last_played_date = ts;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // 2. Identify the candidate (Next Episode)
+    if found_watched {
+        if let Some(season) = show.seasons.get(&last_watched_season) {
+            let next_episode_num = last_watched_episode + 1;
+            
+            if let Some(next_episode) = season.episodes.get(&next_episode_num) {
+                if let Ok(data) = state.db.get_user_data(user_id, &next_episode.id).await {
+                    if let Some(pos) = data.position {
+                        if pos > 0 && data.played != Some(true) {
+                            return None;
+                        }
+                    }
+                }
+                let dto = convert_episode_to_dto(next_episode, &season.id, &show.id, &collection.id, &season.name, &show.name, &server_id);
+                return Some((last_played_date, dto));
+            } else {
+                // Try next season
+                let next_season_num = last_watched_season + 1;
+                if let Some(next_season) = show.seasons.get(&next_season_num) {
+                     // Get first episode of next season
+                     let mut episodes: Vec<_> = next_season.episodes.values().collect();
+                     episodes.sort_by_key(|e| e.episode_number);
+                     if let Some(first_episode) = episodes.first() {
+                         if let Ok(data) = state.db.get_user_data(user_id, &first_episode.id).await {
+                             if let Some(pos) = data.position {
+                                 if pos > 0 && data.played != Some(true) {
+                                     return None;
+                                 }
+                             }
+                         }
+                         let dto = convert_episode_to_dto(first_episode, &next_season.id, &show.id, &collection.id, &next_season.name, &show.name, &server_id);
+                         return Some((last_played_date, dto));
+                     }
+                }
+            }
+        }
+    } else if force_first_if_unwatched {
+        // Find lowest season
+        let mut seasons: Vec<_> = show.seasons.values().collect();
+        seasons.sort_by_key(|s| s.season_number);
+        
+        if let Some(first_season) = seasons.first() {
+            let mut episodes: Vec<_> = first_season.episodes.values().collect();
+            episodes.sort_by_key(|e| e.episode_number);
+            
+            if let Some(first_episode) = episodes.first() {
+                // Check if the very first episode is in progress? Usually yes, apply same rule.
+                if let Ok(data) = state.db.get_user_data(user_id, &first_episode.id).await {
+                    if let Some(pos) = data.position {
+                        if pos > 0 && data.played != Some(true) {
+                            return None;
+                        }
+                    }
+                }
+                
+                let dto = convert_episode_to_dto(first_episode, &first_season.id, &show.id, &collection.id, &first_season.name, &show.name, &server_id);
+                return Some((chrono::Utc::now(), dto));
+            }
+        }
+    }
+    
+    None
 }
 
 pub async fn get_next_up(
@@ -336,51 +490,39 @@ pub async fn get_next_up(
         .or_else(|| params.get("limit"))
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(10);
+        
+    let series_id = params.get("SeriesId").or_else(|| params.get("seriesId"));
     
     let mut next_up_items = Vec::new();
-    let collections = state.collections.list_collections().await;
+    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
     
-    for collection in &collections {
-        for show in collection.shows.values() {
-            let mut last_watched_season = 0;
-            let mut last_watched_episode = 0;
-            let mut found_watched = false;
-            
-            for season in show.seasons.values() {
-                for episode in season.episodes.values() {
-                    if let Ok(user_data) = state.db.get_user_data(&user_id, &episode.id).await {
-                        if user_data.played == Some(true) {
-                            if episode.season_number > last_watched_season || 
-                               (episode.season_number == last_watched_season && episode.episode_number > last_watched_episode) {
-                                last_watched_season = episode.season_number;
-                                last_watched_episode = episode.episode_number;
-                                found_watched = true;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if found_watched {
-                if let Some(season) = show.seasons.get(&last_watched_season) {
-                    let next_episode_num = last_watched_episode + 1;
-                    if let Some(next_episode) = season.episodes.get(&next_episode_num) {
-                        let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
-                        let dto = convert_episode_to_dto(next_episode, &season.id, &show.id, &collection.id, &season.name, &show.name, &server_id);
-                        next_up_items.push(dto);
-                    } else {
-                        let next_season_num = last_watched_season + 1;
-                        if let Some(next_season) = show.seasons.get(&next_season_num) {
-                            if let Some(first_episode) = next_season.episodes.values().min_by_key(|e| e.episode_number) {
-                                let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
-                                let dto = convert_episode_to_dto(first_episode, &next_season.id, &show.id, &collection.id, &next_season.name, &show.name, &server_id);
-                                next_up_items.push(dto);
-                            }
-                        }
-                    }
+    if let Some(sid) = series_id {
+        // Direct lookup
+        if let Some((collection_id, item)) = state.collections.get_item(sid) {
+            if let crate::collection::repo::FoundItem::Show(show) = item {
+                if let Some(collection) = state.collections.get_collection(&collection_id).await {
+                     if let Some((_, dto)) = find_next_up_for_show(&state, &user_id, &show, &collection, &server_id, true).await {
+                         next_up_items.push(dto);
+                     }
                 }
             }
         }
+    } else {
+        // Scan all shows
+        let collections = state.collections.list_collections().await;
+        let mut potential_items = Vec::new();
+        
+        for collection in &collections {
+            for show in collection.shows.values() {
+                 if let Some((date, dto)) = find_next_up_for_show(&state, &user_id, show, collection, &server_id, false).await {
+                     potential_items.push((date, dto));
+                 }
+            }
+        }
+        
+        // Sort by last played date descending
+        potential_items.sort_by(|a, b| b.0.cmp(&a.0));
+        next_up_items = potential_items.into_iter().map(|(_, dto)| dto).collect();
     }
     
     let items: Vec<BaseItemDto> = next_up_items.into_iter().take(limit).collect();
