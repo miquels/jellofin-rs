@@ -445,6 +445,7 @@ pub struct MediaStream {
 pub struct QueryResult<T> {
     pub items: Vec<T>,
     pub total_record_count: usize,
+    pub start_index: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

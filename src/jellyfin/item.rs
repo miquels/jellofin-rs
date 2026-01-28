@@ -23,12 +23,81 @@ use crate::server::AppState;
 use crate::util::QueryParams;
 
 pub async fn get_item_ancestors(
-    State(_state): State<AppState>,
-    Path(_item_id): Path<String>,
+    State(state): State<AppState>,
+    Path(item_id): Path<String>,
 ) -> Json<Vec<BaseItemDto>> {
-    // Stub: Returning empty list for now.
-    // Real implementation requires traversing up the tree (Episode -> Season -> Series -> Collection)
-    Json(vec![])
+    let mut ancestors = Vec::new();
+    let server_id = state.config.jellyfin.server_id.as_deref().unwrap_or_default();
+    let collections = state.collections.list_collections().await;
+    
+    for collection in &collections {
+        // Check episodes - build full chain: Season → Series → Collection
+        for show in collection.shows.values() {
+            for season in show.seasons.values() {
+                for episode in season.episodes.values() {
+                    if episode.id == item_id {
+                        ancestors.push(convert_season_to_dto(season, &show.id, &collection.id, &show.name, server_id));
+                        ancestors.push(convert_show_to_dto(show, &collection.id, server_id));
+                        ancestors.push(BaseItemDto {
+                            id: collection.id.clone(),
+                            name: collection.name.clone(),
+                            item_type: "CollectionFolder".to_string(),
+                            server_id: Some(server_id.to_string()),
+                            ..Default::default()
+                        });
+                        return Json(ancestors);
+                    }
+                }
+            }
+        }
+        
+        // Check seasons - add Series → Collection
+        for show in collection.shows.values() {
+            for season in show.seasons.values() {
+                if season.id == item_id {
+                    ancestors.push(convert_show_to_dto(show, &collection.id, server_id));
+                    ancestors.push(BaseItemDto {
+                        id: collection.id.clone(),
+                        name: collection.name.clone(),
+                        item_type: "CollectionFolder".to_string(),
+                        server_id: Some(server_id.to_string()),
+                        ..Default::default()
+                    });
+                    return Json(ancestors);
+                }
+            }
+        }
+        
+        // Check shows - add Collection
+        for show in collection.shows.values() {
+            if show.id == item_id {
+                ancestors.push(BaseItemDto {
+                    id: collection.id.clone(),
+                    name: collection.name.clone(),
+                    item_type: "CollectionFolder".to_string(),
+                    server_id: Some(server_id.to_string()),
+                    ..Default::default()
+                });
+                return Json(ancestors);
+            }
+        }
+        
+        // Check movies - add Collection
+        for movie in collection.movies.values() {
+            if movie.id == item_id {
+                ancestors.push(BaseItemDto {
+                    id: collection.id.clone(),
+                    name: collection.name.clone(),
+                    item_type: "CollectionFolder".to_string(),
+                    server_id: Some(server_id.to_string()),
+                    ..Default::default()
+                });
+                return Json(ancestors);
+            }
+        }
+    }
+    
+    Json(ancestors)
 }
 
 pub async fn get_items(
@@ -293,10 +362,11 @@ pub async fn get_items(
     items = apply_item_sorting(items, &params);
 
     // Apply pagination
-    let (items, _start_index) = apply_pagination(items, &params);
+    let (items, start_index) = apply_pagination(items, &params);
 
     Json(QueryResult {
         total_record_count: total_count,
+        start_index,
         items,
     })
 }
@@ -733,6 +803,7 @@ pub async fn get_similar_items(
 
     Json(QueryResult {
         total_record_count: items.len(),
+        start_index: 0,
         items,
     })
 }
@@ -1105,6 +1176,7 @@ pub async fn get_theme_songs(
     Json(QueryResult {
         items: vec![],
         total_record_count: 0,
+        start_index: 0,
     })
 }
 
@@ -1116,6 +1188,7 @@ pub async fn get_special_features(
     Json(QueryResult {
         items: vec![],
         total_record_count: 0,
+        start_index: 0,
     })
 }
 
@@ -1241,6 +1314,7 @@ pub async fn get_suggestions(
     Json(QueryResult {
         items,
         total_record_count: limit, // Approximation
+        start_index: 0,
     })
 }
 
@@ -1252,6 +1326,7 @@ pub async fn get_media_segments(
     Json(QueryResult {
         items: vec![],
         total_record_count: 0,
+        start_index: 0,
     })
 }
 
@@ -1289,6 +1364,7 @@ pub async fn search_hints(
     Json(QueryResult {
         items: hints,
         total_record_count: count,
+        start_index: 0,
     })
 }
 
@@ -1381,5 +1457,6 @@ pub async fn get_resume_items(
     Ok(Json(QueryResult {
         items,
         total_record_count: count,
+        start_index: 0,
     }))
 }

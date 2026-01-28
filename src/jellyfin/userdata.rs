@@ -100,6 +100,7 @@ pub async fn get_resume_items(
     Ok(Json(QueryResult {
         items,
         total_record_count: count,
+        start_index: 0,
     }))
 }
 

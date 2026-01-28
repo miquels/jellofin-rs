@@ -334,6 +334,7 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
     Json(QueryResult {
         items,
         total_record_count: collections.len(),
+        start_index: 0,
     })
 }
 
