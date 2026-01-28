@@ -345,7 +345,7 @@ impl UserDataRepo for SqliteRepository {
             WHERE userid = ?
             AND position > 0
             AND played != true
-            ORDER BY position DESC"
+            ORDER BY timestamp DESC"
             .to_string();
         if let Some(limit) = limit {
             let _ = write!(&mut query, " LIMIT {}", limit);
@@ -386,12 +386,6 @@ impl UserDataRepo for SqliteRepository {
             });
         }
 
-        if user_data.len() == 0 {
-            return Err(DbError::NotFound(format!(
-                "UserData not found: {}",
-                user_id
-            )));
-        }
         Ok(user_data)
     }
 
