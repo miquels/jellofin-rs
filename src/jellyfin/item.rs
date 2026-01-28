@@ -10,6 +10,9 @@ use tower::ServiceExt;
 use tower_http::services::ServeFile;
 
 use super::auth::get_user_id;
+use super::filter::apply_items_filter;
+use super::pagination::apply_pagination;
+use super::sort::apply_item_sorting;
 use super::types::*;
 use super::userdata::get_default_user_data;
 use crate::collection::find_image_path;
@@ -280,8 +283,20 @@ pub async fn get_items(
         }
     }
 
+    // Apply filtering
+    items = apply_items_filter(items, &params);
+
+    // Store total count before pagination
+    let total_count = items.len();
+
+    // Apply sorting
+    items = apply_item_sorting(items, &params);
+
+    // Apply pagination
+    let (items, _start_index) = apply_pagination(items, &params);
+
     Json(QueryResult {
-        total_record_count: items.len(),
+        total_record_count: total_count,
         items,
     })
 }
@@ -403,13 +418,13 @@ pub async fn get_latest_items(
         if let Some(collection) = state.collections.get_collection(parent_id).await {
             for movie in collection.movies.values() {
                 all_items.push((
-                    movie.date_created,
+                    movie.premiere_date,
                     convert_movie_to_dto(movie, parent_id, &server_id),
                 ));
             }
             for show in collection.shows.values() {
                 all_items.push((
-                    show.date_created,
+                    show.premiere_date,
                     convert_show_to_dto(show, parent_id, &server_id),
                 ));
             }
@@ -421,26 +436,32 @@ pub async fn get_latest_items(
             let coll_id = &collection.id;
             for movie in collection.movies.values() {
                 all_items.push((
-                    movie.date_created,
+                    movie.premiere_date,
                     convert_movie_to_dto(movie, coll_id, &server_id),
                 ));
             }
             for show in collection.shows.values() {
                 all_items.push((
-                    show.date_created,
+                    show.premiere_date,
                     convert_show_to_dto(show, coll_id, &server_id),
                 ));
             }
         }
     }
 
-    // Sort by date descending and take limit
+    // Sort by premiere date descending (most recent releases first)
     all_items.sort_by(|a, b| b.0.cmp(&a.0));
+    
+    // Apply filters before taking limit
     let mut items: Vec<BaseItemDto> = all_items
         .into_iter()
-        .take(limit)
         .map(|(_, dto)| dto)
         .collect();
+    
+    items = apply_items_filter(items, &params);
+    
+    // Take limit after filtering
+    items.truncate(limit);
 
     if let Some(user_id) = get_user_id(&req) {
         for item in &mut items {
