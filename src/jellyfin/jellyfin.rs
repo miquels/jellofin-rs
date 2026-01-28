@@ -63,6 +63,7 @@ pub fn build_jellyfin_router(state: AppState) -> Router<AppState> {
         .route("/Sessions/Playing", post(super::userdata::session_playing_progress))
         .route("/Sessions/Playing/Progress", post(super::userdata::session_playing_progress))
         .route("/Sessions/Playing/Stopped", post(super::userdata::session_playing_progress))
+        .route("/PlayingItems/:id", delete(super::userdata::delete_playing_item))
         .route("/Shows/:id/Episodes", get(super::show::get_episodes))
         .route("/Shows/:id/Seasons", get(super::show::get_seasons))
         .route("/Shows/NextUp", get(super::show::get_next_up))

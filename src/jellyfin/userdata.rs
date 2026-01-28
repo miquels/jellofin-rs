@@ -242,7 +242,8 @@ pub async fn update_playback_position(
 #[derive(Debug, serde::Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct PlayingProgressRequest {
-    pub item_id: String,
+    #[serde(alias = "itemId")]
+    pub item_id: Option<String>,
     #[serde(default)]
     pub position_ticks: i64,
     #[allow(dead_code)]
@@ -262,11 +263,16 @@ pub async fn session_playing_progress(
     State(state): State<AppState>,
     Json(progress): Json<PlayingProgressRequest>,
 ) -> Result<StatusCode, StatusCode> {
+    let item_id = match progress.item_id {
+        Some(id) => id,
+        None => return Ok(StatusCode::BAD_REQUEST), // item_id is required
+    };
+
     let mut user_data = state
         .db
-        .get_user_data(&user_id, &progress.item_id)
+        .get_user_data(&user_id, &item_id)
         .await
-        .unwrap_or_else(|_| get_default_db_user_data(&user_id, &progress.item_id));
+        .unwrap_or_else(|_| get_default_db_user_data(&user_id, &item_id));
 
     user_data.position = Some(progress.position_ticks);
     user_data.timestamp = Some(chrono::Utc::now());
@@ -276,6 +282,37 @@ pub async fn session_playing_progress(
         .upsert_user_data(&user_data)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn delete_playing_item(
+    axum::Extension(user_id): axum::Extension<String>,
+    State(state): State<AppState>,
+    Path(item_id): Path<String>,
+    Query(params): Query<QueryParams>,
+) -> Result<StatusCode, StatusCode> {
+    // If positionTicks is provided, save it one last time
+    let position_ticks = params
+        .get("positionTicks")
+        .and_then(|s| s.parse::<i64>().ok());
+
+    if let Some(pos) = position_ticks {
+        let mut user_data = state
+            .db
+            .get_user_data(&user_id, &item_id)
+            .await
+            .unwrap_or_else(|_| get_default_db_user_data(&user_id, &item_id));
+
+        user_data.position = Some(pos);
+        user_data.timestamp = Some(chrono::Utc::now());
+
+        state
+            .db
+            .upsert_user_data(&user_data)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
 
     Ok(StatusCode::NO_CONTENT)
 }
