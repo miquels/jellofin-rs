@@ -7,6 +7,8 @@ use axum::{
 use super::auth::get_user_id;
 use super::item::{convert_episode_to_dto, convert_movie_to_dto};
 use super::types::*;
+use crate::collection::collection::ItemRef;
+use crate::collection::repo::FoundItem;
 use crate::db::UserDataRepo;
 use crate::server::AppState;
 use crate::util::QueryParams;
@@ -30,64 +32,61 @@ pub async fn get_resume_items(
         .get_user_data_resume(&user_id, Some(limit as u32 * 2))
         .await
     {
-        let collections = state.collections.list_collections().await;
         let server_id = state
             .config
             .jellyfin
             .server_id
             .as_deref()
             .unwrap_or_default();
-
-        // Movies are easy and efficient to scan.
-        for collection in &collections {
-            for data in &db_user_data {
-                if let Some(movie) = collection.movies.get(&data.itemid) {
-                    let mut dto = convert_movie_to_dto(movie, &collection.id, server_id);
-                    dto.user_data = Some(UserData {
-                        playback_position_ticks: data.position.unwrap_or(0),
-                        played_percentage: data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
-                        play_count: data.playcount.unwrap_or(0),
-                        is_favorite: data.favorite.unwrap_or(false),
-                        last_played_date: data.timestamp.map(|t| t.to_rfc3339()),
-                        played: data.played.unwrap_or(false),
-                        key: data.itemid.clone(),
-                        unplayed_item_count: None,
-                    });
-                    resume_items.push(dto);
-                }
-            }
-
-            // Shows are more complex, as we need to scan the seasons and episodes.
-            for show in collection.shows.values() {
-                for season in show.seasons.values() {
-                    for episode in season.episodes.values() {
-                        for data in &db_user_data {
-                            if data.itemid == episode.id {
-                                let mut dto = convert_episode_to_dto(
-                                    episode,
-                                    &season.id,
-                                    &show.id,
-                                    &collection.id,
-                                    &season.name,
-                                    &show.name,
-                                    server_id,
-                                );
-                                dto.user_data = Some(UserData {
-                                    playback_position_ticks: data.position.unwrap_or(0),
-                                    played_percentage: data
-                                        .playedpercentage
-                                        .map(|p| p as f64)
-                                        .unwrap_or(0.0),
-                                    play_count: data.playcount.unwrap_or(0),
-                                    is_favorite: data.favorite.unwrap_or(false),
-                                    last_played_date: data.timestamp.map(|t| t.to_rfc3339()),
-                                    played: data.played.unwrap_or(false),
-                                    key: episode.id.clone(),
-                                    unplayed_item_count: None,
-                                });
-                                resume_items.push(dto);
+            
+        // Efficiently finding items by ID using the global lookup map
+        for data in &db_user_data {
+            if let Some((collection_id, found_item)) = state.collections.get_item(&data.itemid) {
+                if let Some(collection) = state.collections.get_collection(&collection_id).await {
+                    match found_item {
+                        FoundItem::Movie(movie) => {
+                            let mut dto = convert_movie_to_dto(&movie, &collection.id, server_id);
+                            dto.user_data = Some(UserData {
+                                playback_position_ticks: data.position.unwrap_or(0),
+                                played_percentage: data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
+                                play_count: data.playcount.unwrap_or(0),
+                                is_favorite: data.favorite.unwrap_or(false),
+                                last_played_date: data.timestamp.map(|t| t.to_rfc3339()),
+                                played: data.played.unwrap_or(false),
+                                key: data.itemid.clone(),
+                                unplayed_item_count: None,
+                            });
+                            resume_items.push(dto);
+                        },
+                        FoundItem::Episode(episode) => {
+                            // Need to find parent season and show for full DTO
+                            if let Some(ItemRef::Season(season)) = collection.get_item(&episode.season_id) {
+                                if let Some(ItemRef::Show(show)) = collection.get_item(&episode.show_id) {
+                                    let mut dto = convert_episode_to_dto(
+                                        &episode,
+                                        &season.id,
+                                        &show.id,
+                                        &collection.id,
+                                        &season.name,
+                                        &show.name,
+                                        server_id,
+                                    );
+                                    dto.user_data = Some(UserData {
+                                        playback_position_ticks: data.position.unwrap_or(0),
+                                        played_percentage: data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
+                                        play_count: data.playcount.unwrap_or(0),
+                                        is_favorite: data.favorite.unwrap_or(false),
+                                        last_played_date: data.timestamp.map(|t| t.to_rfc3339()),
+                                        played: data.played.unwrap_or(false),
+                                        key: data.itemid.clone(),
+                                        unplayed_item_count: None,
+                                    });
+                                    resume_items.push(dto);
+                                }
                             }
-                        }
+                        },
+                        // We generally don't resume Shows or Seasons/Collections, but if needed they'd go here
+                        _ => {}
                     }
                 }
             }
