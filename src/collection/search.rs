@@ -156,10 +156,17 @@ impl SearchIndex {
                     .get_first(self.item_type_field)
                     .and_then(|v| v.as_str()),
             ) {
+                let name = retrieved_doc
+                    .get_first(self.name_field)
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                    
                 results.push(SearchResult {
                     id: id.to_string(),
                     collection_id: collection_id.to_string(),
                     item_type: item_type.to_string(),
+                    name,
                 });
             }
         }
@@ -237,10 +244,17 @@ impl SearchIndex {
                     .get_first(self.item_type_field)
                     .and_then(|v| v.as_str()),
             ) {
+                let name = retrieved_doc
+                    .get_first(self.name_field)
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                    
                 results.push(SearchResult {
                     id: id.to_string(),
                     collection_id: collection_id.to_string(),
                     item_type: item_type.to_string(),
+                    name,
                 });
             }
         }
@@ -254,6 +268,7 @@ pub struct SearchResult {
     pub id: String,
     pub collection_id: String,
     pub item_type: String,
+    pub name: String,
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -49,6 +49,7 @@ pub fn build_jellyfin_router(state: AppState) -> Router<AppState> {
                 .delete(super::playlist::delete_playlist_items),
         )
         .route("/Playlists/:playlist_id/Users", get(super::playlist::get_playlist_users))
+        .route("/Playlists/:playlist_id/Items/:item_id/Move/:new_index", get(super::playlist::move_playlist_item))
         .route("/Playlists/:playlist_id/Users/:user_id", get(super::playlist::get_playlist_user))
         .route("/Plugins", get(super::system::plugins))
         .route("/QuickConnect/Authorize", get(super::auth::quick_connect_authorize))

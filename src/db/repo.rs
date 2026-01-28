@@ -52,6 +52,7 @@ pub trait PlaylistRepo: Send + Sync {
         item_id: &str,
         new_index: i32,
     ) -> DbResult<()>;
+    async fn update_playlist(&self, playlist: &Playlist) -> DbResult<()>;
 }
 
 pub trait Repository:

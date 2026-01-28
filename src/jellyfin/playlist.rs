@@ -281,28 +281,50 @@ pub async fn get_playlist_user(
     }))
 }
 
+/// POST /Playlists/:id
+/// Updates playlist name and public status
 pub async fn update_playlist(
+    axum::Extension(user_id): axum::Extension<String>,
     State(state): State<AppState>,
     Path(playlist_id): Path<String>,
-    req: Request<axum::body::Body>,
+    Json(req): Json<UpdatePlaylistRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
 
-    // Check if playlist exists and user owns it
+    // Get existing playlist
     let playlist = state
         .db
         .get_playlist(&playlist_id)
         .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
 
+    // Verify ownership
     if playlist.userid != user_id {
         return Err(StatusCode::FORBIDDEN);
     }
 
-    // Parse update request (Stub: We assume success essentially, as we just need to satisfy the client for now)
-    // Real implementation would parse body and update Name/Public status.
+    // Update playlist name if provided
+    // TODO: Add 'public' field to Playlist model and database schema to support is_public updates
+    // For now, is_public is ignored and always assumed to be true
+    if let Some(name) = req.name {
+        let mut updated_playlist = playlist;
+        updated_playlist.name = name;
+        
+        state
+            .db
+            .update_playlist(&updated_playlist)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdatePlaylistRequest {
+    #[serde(rename = "Name")]
+    pub name: Option<String>,
+    #[serde(rename = "IsPublic")]
+    pub is_public: Option<bool>,
 }
 
 fn generate_playlist_id(name: &str) -> String {
@@ -334,4 +356,53 @@ fn generate_playlist_id(name: &str) -> String {
     }
 
     id
+}
+
+/// GET /Playlists/:id/Items/:item/Move/:new_index
+/// Moves a playlist item to a new position by reordering all items
+pub async fn move_playlist_item(
+    axum::Extension(user_id): axum::Extension<String>,
+    State(state): State<AppState>,
+    Path((playlist_id, item_id, new_index)): Path<(String, String, i32)>,
+) -> Result<StatusCode, StatusCode> {
+    // Verify playlist ownership
+    let playlist = state
+        .db
+        .get_playlist(&playlist_id)
+        .await
+        .map_err(|_| StatusCode::NOT_FOUND)?;
+
+    if playlist.userid != user_id {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    // Get all playlist items ordered by current position
+    let item_ids = state
+        .db
+        .get_playlist_items(&playlist_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Find the item to move
+    let old_pos = item_ids
+        .iter()
+        .position(|id| id == &item_id)
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    // Remove item from old position and insert at new position
+    let mut reordered_ids = item_ids.clone();
+    let moved_id = reordered_ids.remove(old_pos);
+    let insert_pos = (new_index as usize).min(reordered_ids.len());
+    reordered_ids.insert(insert_pos, moved_id);
+
+    // Renumber all items with their new positions
+    for (idx, id) in reordered_ids.iter().enumerate() {
+        state
+            .db
+            .move_item_in_playlist(&playlist_id, id, idx as i32)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
+
+    Ok(StatusCode::NO_CONTENT)
 }

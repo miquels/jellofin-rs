@@ -566,6 +566,15 @@ impl PlaylistRepo for SqliteRepository {
             .await?;
         Ok(())
     }
+
+    async fn update_playlist(&self, playlist: &Playlist) -> DbResult<()> {
+        sqlx::query("UPDATE playlist SET name = ? WHERE id = ?")
+            .bind(&playlist.name)
+            .bind(&playlist.id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
 }
 
 impl Repository for SqliteRepository {

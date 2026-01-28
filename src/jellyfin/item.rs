@@ -1354,7 +1354,7 @@ pub async fn search_hints(
         .iter()
         .map(|r| SearchHint {
             item_id: r.id.clone(),
-            name: "".to_string(),
+            name: r.name.clone(),
             item_type: r.item_type.clone(),
             production_year: None,
         })
