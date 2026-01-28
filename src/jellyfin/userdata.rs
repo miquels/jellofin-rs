@@ -257,20 +257,10 @@ pub struct PlayingProgressRequest {
 /// POST /Sessions/Playing/Progress
 /// Updates playback progress for an item
 pub async fn session_playing_progress(
+    axum::Extension(user_id): axum::Extension<String>,
     State(state): State<AppState>,
-    req: Request<axum::body::Body>,
+    Json(progress): Json<PlayingProgressRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-
-    // Parse JSON body
-    let (_parts, body) = req.into_parts();
-    let bytes = axum::body::to_bytes(body, 1024 * 1024)
-        .await
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
-
-    let progress: PlayingProgressRequest =
-        serde_json::from_slice(&bytes).map_err(|_| StatusCode::BAD_REQUEST)?;
-
     let mut user_data = state
         .db
         .get_user_data(&user_id, &progress.item_id)
