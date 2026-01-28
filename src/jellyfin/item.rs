@@ -15,6 +15,7 @@ use super::pagination::apply_pagination;
 use super::sort::apply_item_sorting;
 use super::types::*;
 use super::userdata::get_default_user_data;
+use crate::collection::collection::ItemRef;
 use crate::collection::find_image_path;
 use crate::collection::item::MediaSource;
 use crate::collection::repo::FoundItem;
@@ -28,75 +29,57 @@ pub async fn get_item_ancestors(
 ) -> Json<Vec<BaseItemDto>> {
     let mut ancestors = Vec::new();
     let server_id = state.config.jellyfin.server_id.as_deref().unwrap_or_default();
-    let collections = state.collections.list_collections().await;
-    
-    for collection in &collections {
-        // Check episodes - build full chain: Season → Series → Collection
-        for show in collection.shows.values() {
-            for season in show.seasons.values() {
-                for episode in season.episodes.values() {
-                    if episode.id == item_id {
-                        ancestors.push(convert_season_to_dto(season, &show.id, &collection.id, &show.name, server_id));
-                        ancestors.push(convert_show_to_dto(show, &collection.id, server_id));
-                        ancestors.push(BaseItemDto {
-                            id: collection.id.clone(),
-                            name: collection.name.clone(),
-                            item_type: "CollectionFolder".to_string(),
-                            server_id: Some(server_id.to_string()),
-                            ..Default::default()
-                        });
-                        return Json(ancestors);
-                    }
+
+    // 1. Find item and its collection
+    let (collection_id, found_item) = match state.collections.get_item(&item_id) {
+        Some(res) => res,
+        None => return Json(ancestors),
+    };
+
+    // 2. Get the collection for parent lookups
+    let collection = match state.collections.get_collection(&collection_id).await {
+        Some(c) => c,
+        None => return Json(ancestors),
+    };
+
+    // 3. Build ancestor chain based on item type
+    match found_item {
+        FoundItem::Episode(episode) => {
+            // Episode -> Season -> Series -> Collection
+            // Get Season
+            if let Some(ItemRef::Season(season)) = collection.get_item(&episode.season_id) {
+                // Get Show (needed for season DTO conversion)
+                if let Some(ItemRef::Show(show)) = collection.get_item(&episode.show_id) {
+                   ancestors.push(convert_season_to_dto(season, &show.id, &collection.id, &show.name, server_id));
+                   ancestors.push(convert_show_to_dto(show, &collection.id, server_id)); 
                 }
             }
         }
-        
-        // Check seasons - add Series → Collection
-        for show in collection.shows.values() {
-            for season in show.seasons.values() {
-                if season.id == item_id {
-                    ancestors.push(convert_show_to_dto(show, &collection.id, server_id));
-                    ancestors.push(BaseItemDto {
-                        id: collection.id.clone(),
-                        name: collection.name.clone(),
-                        item_type: "CollectionFolder".to_string(),
-                        server_id: Some(server_id.to_string()),
-                        ..Default::default()
-                    });
-                    return Json(ancestors);
-                }
+        FoundItem::Season(season) => {
+            // Season -> Series -> Collection
+            if let Some(ItemRef::Show(show)) = collection.get_item(&season.show_id) {
+                ancestors.push(convert_show_to_dto(show, &collection.id, server_id));
             }
         }
-        
-        // Check shows - add Collection
-        for show in collection.shows.values() {
-            if show.id == item_id {
-                ancestors.push(BaseItemDto {
-                    id: collection.id.clone(),
-                    name: collection.name.clone(),
-                    item_type: "CollectionFolder".to_string(),
-                    server_id: Some(server_id.to_string()),
-                    ..Default::default()
-                });
-                return Json(ancestors);
-            }
+        FoundItem::Show(_show) => {
+            // Series -> Collection
+            // Nothing extra to add before collection
         }
-        
-        // Check movies - add Collection
-        for movie in collection.movies.values() {
-            if movie.id == item_id {
-                ancestors.push(BaseItemDto {
-                    id: collection.id.clone(),
-                    name: collection.name.clone(),
-                    item_type: "CollectionFolder".to_string(),
-                    server_id: Some(server_id.to_string()),
-                    ..Default::default()
-                });
-                return Json(ancestors);
-            }
+        FoundItem::Movie(_movie) => {
+            // Movie -> Collection
+            // Nothing extra to add before collection
         }
     }
-    
+
+    // Always add Collection as the root ancestor
+    ancestors.push(BaseItemDto {
+        id: collection.id.clone(),
+        name: collection.name.clone(),
+        item_type: "CollectionFolder".to_string(),
+        server_id: Some(server_id.to_string()),
+        ..Default::default()
+    });
+
     Json(ancestors)
 }
 

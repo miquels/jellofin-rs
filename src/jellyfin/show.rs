@@ -12,15 +12,6 @@ use crate::jellyfin::item::convert_season_to_dto;
 use crate::server::AppState;
 use crate::util::QueryParams;
 
-pub async fn get_item_ancestors(
-    State(_state): State<AppState>,
-    Path(_item_id): Path<String>,
-) -> Json<Vec<BaseItemDto>> {
-    // Stub: Returning empty list for now.
-    // Real implementation requires traversing up the tree (Episode -> Season -> Series -> Collection)
-    Json(vec![])
-}
-
 pub async fn get_seasons(
     State(state): State<AppState>,
     Path(show_id): Path<String>,
