@@ -118,7 +118,7 @@ pub struct PublicSystemInfo {
     pub id: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "PascalCase")]
 pub struct BaseItemDto {
     pub name: String,
@@ -519,4 +519,14 @@ pub struct Capabilities {
     pub supported_commands: Vec<String>,
     pub supports_media_control: bool,
     pub supports_persistent_identifier: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QueryResultNameIdPair {
+    #[serde(rename = "Items")]
+    pub items: Vec<NameIdPair>,
+    #[serde(rename = "TotalRecordCount")]
+    pub total_record_count: usize,
+    #[serde(rename = "StartIndex")]
+    pub start_index: usize,
 }

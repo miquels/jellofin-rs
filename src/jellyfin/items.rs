@@ -6,6 +6,7 @@ use axum::{
     response::Response,
     Json,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::collection::item::MediaSource;
 use crate::collection::repo::FoundItem;
@@ -15,6 +16,40 @@ use crate::util::QueryParams;
 use super::auth::get_user_id;
 use super::types::*;
 use super::userdata::get_default_user_data;
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct FilterOption {
+    pub name: String,
+    pub field_name: String,
+}
+
+pub async fn get_item_filters(
+    State(_state): State<AppState>,
+) -> Json<Vec<FilterOption>> {
+    Json(vec![
+        FilterOption { name: "Genre".to_string(), field_name: "Genre".to_string() },
+        FilterOption { name: "ParentalRating".to_string(), field_name: "OfficialRating".to_string() },
+        FilterOption { name: "Tags".to_string(), field_name: "Tags".to_string() },
+        FilterOption { name: "VideoType".to_string(), field_name: "VideoType".to_string() },
+        FilterOption { name: "Status".to_string(), field_name: "Status".to_string() },
+    ])
+}
+
+pub async fn get_item_filters2(
+    State(state): State<AppState>,
+) -> Json<Vec<FilterOption>> {
+    get_item_filters(State(state)).await
+}
+
+pub async fn get_item_ancestors(
+    State(_state): State<AppState>,
+    Path(_item_id): Path<String>,
+) -> Json<Vec<BaseItemDto>> {
+    // Stub: Returning empty list for now. 
+    // Real implementation requires traversing up the tree (Episode -> Season -> Series -> Collection)
+    Json(vec![])
+}
 
 pub async fn get_items(
     State(state): State<AppState>,

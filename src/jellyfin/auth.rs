@@ -1,3 +1,7 @@
+// Authentication specs:
+// Emby - https://dev.emby.media/doc/restapi/User-Authentication.html.
+// Jellyfin - https://gist.github.com/nielsvanvelzen/ea047d9028f676185832e51ffaf12a6f
+
 use axum::{
     extract::{Query, State},
     http::{Request, StatusCode},
@@ -5,27 +9,41 @@ use axum::{
     response::Response,
     Json,
 };
+use bcrypt;
 
 use crate::db::{AccessToken, User, UserRepo, AccessTokenRepo};
 use crate::server::AppState;
-use crate::util::QueryParams;
+use crate::util::{QueryParams, generate_id};
 use super::types::*;
 
 pub async fn authenticate_by_name(
     State(state): State<AppState>,
     Json(req): Json<AuthenticationRequest>,
 ) -> Result<Json<AuthenticationResult>, StatusCode> {
-    let username = req.username.trim();
-    
-    let user = match state.db.get_user(username).await {
-        Ok(user) => user,
+    let username = req.username.trim().to_lowercase();
+
+    let now = chrono::Utc::now();
+    let now_text = now.to_rfc3339();
+
+    let user = match state.db.get_user(&username).await {
+        Ok(user) => {
+            let auth_ok = match bcrypt::verify(&req.pw, &user.password) {
+                Ok(value) => value,
+                Err(_) => false,
+            };
+            if !auth_ok {
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+            user
+        },
         Err(_) => {
             if state.config.jellyfin.autoregister {
                 let new_user = User {
-                    id: uuid::Uuid::new_v4().to_string(),
+                    id: generate_id(&username),
                     username: username.to_string(),
-                    password: String::new(),
-                    created: Some(chrono::Utc::now().to_rfc3339()),
+                    password: bcrypt::hash(&req.pw, bcrypt::DEFAULT_COST)
+                                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+                    created: Some(now_text.clone()),
                     lastlogin: None,
                     lastused: None,
                 };
@@ -41,19 +59,18 @@ pub async fn authenticate_by_name(
     let token = AccessToken {
         token: uuid::Uuid::new_v4().to_string(),
         userid: user.id.clone(),
-        deviceid: Some(String::new()),
-        devicename: Some(String::new()),
-        applicationname: Some(String::new()),
-        applicationversion: Some(String::new()),
+        deviceid: None,
+        devicename: None,
+        applicationname: None,
+        applicationversion: None,
         remoteaddress: None,
-        created: Some(chrono::Utc::now()),
-        lastused: None,
+        created: Some(now),
+        lastused: Some(now),
     };
     
     state.db.upsert_token(&token).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     
-    let now = chrono::Utc::now().to_rfc3339();
     let session_id = "e3a869b7a901f8894de8ee65688db6c0"; // Hardcoded session ID matching Go implementation
     let server_id = state.config.jellyfin.server_id.clone().unwrap_or_else(|| "jellyfin-rs".to_string());
     
@@ -66,8 +83,8 @@ pub async fn authenticate_by_name(
             has_configured_password: false,
             has_configured_easy_password: false,
             enable_auto_login: false,
-            last_login_date: now.clone(),
-            last_activity_date: now.clone(),
+            last_login_date: now_text.clone(),
+            last_activity_date: now_text.clone(),
             configuration: UserConfiguration {
                 grouped_folders: vec![],
                 subtitle_mode: "Default".to_string(),
@@ -151,7 +168,7 @@ pub async fn authenticate_by_name(
             user_id: user.id.clone(),
             user_name: user.username.clone(),
             client: String::new(),
-            last_activity_date: now.clone(),
+            last_activity_date: now_text.clone(),
             last_playback_check_in: "0001-01-01T00:00:00Z".to_string(),
             device_name: String::new(),
             device_id: String::new(),
@@ -237,4 +254,31 @@ fn parse_emby_auth(auth_str: &str) -> Option<String> {
 
 pub fn get_user_id<B>(req: &Request<B>) -> Option<String> {
     req.extensions().get::<String>().cloned()
+}
+
+use axum::response::IntoResponse;
+
+pub async fn quick_connect_enabled(
+    State(_state): State<AppState>,
+) -> Json<bool> {
+    // Stub: Quick Connect not yet fully implemented
+    Json(false)
+}
+
+pub async fn quick_connect_initiate(
+    State(_state): State<AppState>,
+) -> impl IntoResponse {
+    StatusCode::NOT_IMPLEMENTED.into_response()
+}
+
+pub async fn quick_connect_authorize(
+    State(_state): State<AppState>,
+) -> impl IntoResponse {
+    StatusCode::NOT_IMPLEMENTED.into_response()
+}
+
+pub async fn quick_connect_connect(
+    State(_state): State<AppState>,
+) -> impl IntoResponse {
+    StatusCode::NOT_IMPLEMENTED.into_response()
 }
