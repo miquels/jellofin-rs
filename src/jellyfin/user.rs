@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use axum::{
     extract::{Path, State},
     http::{Request, StatusCode},
@@ -6,6 +8,7 @@ use axum::{
 };
 
 use crate::db::UserRepo;
+use crate::jellyfin::userdata::get_default_user_data;
 use crate::server::AppState;
 use super::auth::get_user_id;
 use super::types::*;
@@ -119,5 +122,216 @@ pub async fn get_user_image(
     // Stub: Return 404 for user profile images for now, or a default avatar if we had one.
     // 404 is better than 500/routing error.
     Err(StatusCode::NOT_FOUND)
+}
+
+pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<BaseItemDto>> {
+    let collections = state.collections.list_collections().await;
+    
+    let mut items: Vec<BaseItemDto> = collections
+        .iter()
+        .map(|c| {
+            // Convert "shows" to "tvshows" for Jellyfin API compatibility
+            let collection_type = match c.collection_type.as_str() {
+                "shows" => "tvshows",
+                other => other,
+            };
+            
+            BaseItemDto {
+                name: c.name.clone(),
+                id: c.id.clone(),
+                item_type: "CollectionFolder".to_string(),
+                collection_type: Some(collection_type.to_string()),
+                overview: None,
+                production_year: None,
+                premiere_date: None,
+                community_rating: None,
+                runtime_ticks: None,
+                genres: None,
+                studios: None,
+                people: None, // Keep as None for non-items
+                chapters: None,
+                has_subtitles: None,
+                parent_logo_item_id: None,
+                parent_id: None,
+                series_id: None,
+                series_name: None,
+                season_id: None,
+                season_name: None,
+                index_number: None,
+                parent_index_number: None,
+                child_count: Some(c.item_count() as i32),
+                image_tags: HashMap::new(),
+                backdrop_image_tags: None,
+                primary_image_aspect_ratio: None,
+                server_id: None,
+                container: None,
+                video_type: None,
+                width: None,
+                height: None,
+                image_blur_hashes: None,
+                media_type: None,
+                is_hd: None,
+                is_4k: None,
+                is_folder: Some(true),
+                location_type: Some("FileSystem".to_string()),
+                path: None,
+                etag: None,
+                date_created: None,
+                user_data: Some(get_default_user_data(&c.id)),
+                media_sources: None,
+                provider_ids: None,
+                recursive_item_count: None,
+                official_rating: None,
+                sort_name: Some(c.name.to_lowercase()),
+                forced_sort_name: Some(c.name.to_lowercase()),
+                original_title: Some(c.name.clone()),
+                can_delete: Some(false),
+                can_download: Some(false),
+                taglines: None,
+                channel_id: None,
+                genre_items: None,
+                play_access: Some("Full".to_string()),
+                enable_media_source_display: Some(false),
+            }
+        })
+        .collect();
+    
+    // Add Favorites virtual collection
+    items.push(BaseItemDto {
+        name: "Favorites".to_string(),
+        id: "collectionfavorites_f4a0b1c2d3e5c4b8a9e6f7d8e9a0b1c2".to_string(),
+        item_type: "CollectionFolder".to_string(),
+        collection_type: Some("playlists".to_string()),
+        overview: None,
+        production_year: None,
+        premiere_date: None,
+        community_rating: None,
+        runtime_ticks: None,
+        genres: None,
+        studios: None,
+        people: Some(vec![]),
+        chapters: None,
+        has_subtitles: None,
+        parent_logo_item_id: None,
+        parent_id: None,
+        series_id: None,
+        series_name: None,
+        season_id: None,
+        season_name: None,
+        index_number: None,
+        parent_index_number: None,
+        child_count: Some(0),
+        image_tags: HashMap::new(),
+        backdrop_image_tags: None,
+        primary_image_aspect_ratio: None,
+        server_id: None,
+        container: None,
+        video_type: None,
+        width: None,
+        height: None,
+        image_blur_hashes: None,
+        media_type: None,
+        is_hd: None,
+        is_4k: None,
+        is_folder: Some(true),
+        location_type: Some("FileSystem".to_string()),
+        path: None,
+        etag: None,
+        date_created: None,
+        user_data: Some(get_default_user_data("collectionfavorites_f4a0b1c2d3e5c4b8a9e6f7d8e9a0b1c2")),
+        media_sources: None,
+        provider_ids: None,
+        recursive_item_count: None,
+        official_rating: None,
+        sort_name: Some("favorites".to_string()),
+        forced_sort_name: Some("favorites".to_string()),
+        original_title: Some("Favorites".to_string()),
+        can_delete: Some(false),
+        can_download: Some(false),
+        taglines: None,
+        channel_id: None,
+        genre_items: None,
+        play_access: Some("Full".to_string()),
+        enable_media_source_display: Some(false),
+    });
+    
+    // Add Playlists virtual collection
+    items.push(BaseItemDto {
+        name: "Playlists".to_string(),
+        id: "collectionplaylist_2f0340563593c4d98b97c9bfa21ce23c".to_string(),
+        item_type: "CollectionFolder".to_string(),
+        collection_type: Some("playlists".to_string()),
+        overview: None,
+        production_year: None,
+        premiere_date: None,
+        community_rating: None,
+        runtime_ticks: None,
+        genres: None,
+        studios: None,
+        people: Some(vec![]),
+        chapters: None,
+        has_subtitles: None,
+        parent_logo_item_id: None,
+        parent_id: None,
+        series_id: None,
+        series_name: None,
+        season_id: None,
+        season_name: None,
+        index_number: None,
+        parent_index_number: None,
+        child_count: Some(0),
+        image_tags: HashMap::new(),
+        backdrop_image_tags: None,
+        primary_image_aspect_ratio: None,
+        server_id: None,
+        container: None,
+        video_type: None,
+        width: None,
+        height: None,
+        image_blur_hashes: None,
+        media_type: None,
+        is_hd: None,
+        is_4k: None,
+        is_folder: Some(true),
+        location_type: Some("FileSystem".to_string()),
+        path: None,
+        etag: None,
+        date_created: None,
+        user_data: Some(get_default_user_data("collectionplaylist_2f0340563593c4d98b97c9bfa21ce23c")),
+        media_sources: None,
+        provider_ids: None,
+        recursive_item_count: None,
+        official_rating: None,
+        sort_name: Some("playlists".to_string()),
+        forced_sort_name: Some("playlists".to_string()),
+        original_title: Some("Playlists".to_string()),
+        can_delete: Some(false),
+        can_download: Some(false),
+        taglines: None,
+        channel_id: None,
+        genre_items: None,
+        play_access: Some("Full".to_string()),
+        enable_media_source_display: Some(false),
+    });
+    
+    Json(QueryResult {
+        items,
+        total_record_count: collections.len(),
+    })
+}
+
+pub async fn get_grouping_options(
+    State(state): State<AppState>,
+) -> Json<Vec<serde_json::Value>> {
+    // Return list of collections as grouping options, similar to Go's behavior
+    let collections = state.collections.list_collections().await;
+    let options: Vec<serde_json::Value> = collections.iter().map(|c| {
+        serde_json::json!({
+            "Id": c.id,
+            "Name": c.name
+        })
+    }).collect();
+    
+    Json(options)
 }
 

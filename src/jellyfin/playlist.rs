@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::db::{PlaylistRepo, Playlist as DbPlaylist};
 use crate::server::AppState;
 use super::auth::get_user_id;
-use super::items::{convert_episode_to_dto, convert_movie_to_dto};
+use super::item::{convert_episode_to_dto, convert_movie_to_dto};
 use crate::util::QueryParams;
 use super::types::*;
 

@@ -1,9 +1,12 @@
 use std::collections::HashSet;
+
 use axum::{
     extract::{Query, State, Path},
     http::StatusCode,
     Json,
 };
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::server::AppState;
 use crate::util::{QueryParams, generate_id};
@@ -80,3 +83,29 @@ pub async fn get_genre_by_name(
     
     Ok(Json(dto))
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct FilterOption {
+    pub name: String,
+    pub field_name: String,
+}
+
+pub async fn get_item_filters(
+    State(_state): State<AppState>,
+) -> Json<Vec<FilterOption>> {
+    Json(vec![
+        FilterOption { name: "Genre".to_string(), field_name: "Genre".to_string() },
+        FilterOption { name: "ParentalRating".to_string(), field_name: "OfficialRating".to_string() },
+        FilterOption { name: "Tags".to_string(), field_name: "Tags".to_string() },
+        FilterOption { name: "VideoType".to_string(), field_name: "VideoType".to_string() },
+        FilterOption { name: "Status".to_string(), field_name: "Status".to_string() },
+    ])
+}
+
+pub async fn get_item_filters2(
+    State(state): State<AppState>,
+) -> Json<Vec<FilterOption>> {
+    get_item_filters(State(state)).await
+}
+

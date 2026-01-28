@@ -2,45 +2,22 @@ use std::collections::HashMap;
 
 use axum::{
     extract::{Path, Query, State},
-    http::{Request, StatusCode},
-    response::Response,
+    http::{self, Request, StatusCode},
+    response::{IntoResponse, Redirect, Response},
     Json,
 };
-use serde::{Deserialize, Serialize};
+use tower::ServiceExt;
+use tower_http::services::ServeFile;
 
 use crate::collection::item::MediaSource;
 use crate::collection::repo::FoundItem;
+use crate::collection::find_image_path;
 use crate::db::UserDataRepo;
 use crate::server::AppState;
 use crate::util::QueryParams;
 use super::auth::get_user_id;
 use super::types::*;
 use super::userdata::get_default_user_data;
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct FilterOption {
-    pub name: String,
-    pub field_name: String,
-}
-
-pub async fn get_item_filters(
-    State(_state): State<AppState>,
-) -> Json<Vec<FilterOption>> {
-    Json(vec![
-        FilterOption { name: "Genre".to_string(), field_name: "Genre".to_string() },
-        FilterOption { name: "ParentalRating".to_string(), field_name: "OfficialRating".to_string() },
-        FilterOption { name: "Tags".to_string(), field_name: "Tags".to_string() },
-        FilterOption { name: "VideoType".to_string(), field_name: "VideoType".to_string() },
-        FilterOption { name: "Status".to_string(), field_name: "Status".to_string() },
-    ])
-}
-
-pub async fn get_item_filters2(
-    State(state): State<AppState>,
-) -> Json<Vec<FilterOption>> {
-    get_item_filters(State(state)).await
-}
 
 pub async fn get_item_ancestors(
     State(_state): State<AppState>,
@@ -1030,202 +1007,6 @@ pub fn convert_episode_to_dto(
     }
 }
 
-pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<BaseItemDto>> {
-    let collections = state.collections.list_collections().await;
-    
-    let mut items: Vec<BaseItemDto> = collections
-        .iter()
-        .map(|c| {
-            // Convert "shows" to "tvshows" for Jellyfin API compatibility
-            let collection_type = match c.collection_type.as_str() {
-                "shows" => "tvshows",
-                other => other,
-            };
-            
-            BaseItemDto {
-                name: c.name.clone(),
-                id: c.id.clone(),
-                item_type: "CollectionFolder".to_string(),
-                collection_type: Some(collection_type.to_string()),
-                overview: None,
-                production_year: None,
-                premiere_date: None,
-                community_rating: None,
-                runtime_ticks: None,
-                genres: None,
-                studios: None,
-                people: None, // Keep as None for non-items
-                chapters: None,
-                has_subtitles: None,
-                parent_logo_item_id: None,
-                parent_id: None,
-                series_id: None,
-                series_name: None,
-                season_id: None,
-                season_name: None,
-                index_number: None,
-                parent_index_number: None,
-                child_count: Some(c.item_count() as i32),
-                image_tags: HashMap::new(),
-                backdrop_image_tags: None,
-                primary_image_aspect_ratio: None,
-                server_id: None,
-                container: None,
-                video_type: None,
-                width: None,
-                height: None,
-                image_blur_hashes: None,
-                media_type: None,
-                is_hd: None,
-                is_4k: None,
-                is_folder: Some(true),
-                location_type: Some("FileSystem".to_string()),
-                path: None,
-                etag: None,
-                date_created: None,
-                user_data: Some(get_default_user_data(&c.id)),
-                media_sources: None,
-                provider_ids: None,
-                recursive_item_count: None,
-                official_rating: None,
-                sort_name: Some(c.name.to_lowercase()),
-                forced_sort_name: Some(c.name.to_lowercase()),
-                original_title: Some(c.name.clone()),
-                can_delete: Some(false),
-                can_download: Some(false),
-                taglines: None,
-                channel_id: None,
-                genre_items: None,
-                play_access: Some("Full".to_string()),
-                enable_media_source_display: Some(false),
-            }
-        })
-        .collect();
-    
-    // Add Favorites virtual collection
-    items.push(BaseItemDto {
-        name: "Favorites".to_string(),
-        id: "collectionfavorites_f4a0b1c2d3e5c4b8a9e6f7d8e9a0b1c2".to_string(),
-        item_type: "CollectionFolder".to_string(),
-        collection_type: Some("playlists".to_string()),
-        overview: None,
-        production_year: None,
-        premiere_date: None,
-        community_rating: None,
-        runtime_ticks: None,
-        genres: None,
-        studios: None,
-        people: Some(vec![]),
-        chapters: None,
-        has_subtitles: None,
-        parent_logo_item_id: None,
-        parent_id: None,
-        series_id: None,
-        series_name: None,
-        season_id: None,
-        season_name: None,
-        index_number: None,
-        parent_index_number: None,
-        child_count: Some(0),
-        image_tags: HashMap::new(),
-        backdrop_image_tags: None,
-        primary_image_aspect_ratio: None,
-        server_id: None,
-        container: None,
-        video_type: None,
-        width: None,
-        height: None,
-        image_blur_hashes: None,
-        media_type: None,
-        is_hd: None,
-        is_4k: None,
-        is_folder: Some(true),
-        location_type: Some("FileSystem".to_string()),
-        path: None,
-        etag: None,
-        date_created: None,
-        user_data: Some(get_default_user_data("collectionfavorites_f4a0b1c2d3e5c4b8a9e6f7d8e9a0b1c2")),
-        media_sources: None,
-        provider_ids: None,
-        recursive_item_count: None,
-        official_rating: None,
-        sort_name: Some("favorites".to_string()),
-        forced_sort_name: Some("favorites".to_string()),
-        original_title: Some("Favorites".to_string()),
-        can_delete: Some(false),
-        can_download: Some(false),
-        taglines: None,
-        channel_id: None,
-        genre_items: None,
-        play_access: Some("Full".to_string()),
-        enable_media_source_display: Some(false),
-    });
-    
-    // Add Playlists virtual collection
-    items.push(BaseItemDto {
-        name: "Playlists".to_string(),
-        id: "collectionplaylist_2f0340563593c4d98b97c9bfa21ce23c".to_string(),
-        item_type: "CollectionFolder".to_string(),
-        collection_type: Some("playlists".to_string()),
-        overview: None,
-        production_year: None,
-        premiere_date: None,
-        community_rating: None,
-        runtime_ticks: None,
-        genres: None,
-        studios: None,
-        people: Some(vec![]),
-        chapters: None,
-        has_subtitles: None,
-        parent_logo_item_id: None,
-        parent_id: None,
-        series_id: None,
-        series_name: None,
-        season_id: None,
-        season_name: None,
-        index_number: None,
-        parent_index_number: None,
-        child_count: Some(0),
-        image_tags: HashMap::new(),
-        backdrop_image_tags: None,
-        primary_image_aspect_ratio: None,
-        server_id: None,
-        container: None,
-        video_type: None,
-        width: None,
-        height: None,
-        image_blur_hashes: None,
-        media_type: None,
-        is_hd: None,
-        is_4k: None,
-        is_folder: Some(true),
-        location_type: Some("FileSystem".to_string()),
-        path: None,
-        etag: None,
-        date_created: None,
-        user_data: Some(get_default_user_data("collectionplaylist_2f0340563593c4d98b97c9bfa21ce23c")),
-        media_sources: None,
-        provider_ids: None,
-        recursive_item_count: None,
-        official_rating: None,
-        sort_name: Some("playlists".to_string()),
-        forced_sort_name: Some("playlists".to_string()),
-        original_title: Some("Playlists".to_string()),
-        can_delete: Some(false),
-        can_download: Some(false),
-        taglines: None,
-        channel_id: None,
-        genre_items: None,
-        play_access: Some("Full".to_string()),
-        enable_media_source_display: Some(false),
-    });
-    
-    Json(QueryResult {
-        items,
-        total_record_count: collections.len(),
-    })
-}
-
 pub async fn get_theme_songs(
     State(_state): State<AppState>,
     Path(_item_id): Path<String>,
@@ -1247,3 +1028,236 @@ pub async fn get_special_features(
         total_record_count: 0,
     })
 }
+
+#[derive(serde::Deserialize)]
+pub struct ImageParams {
+    #[serde(rename = "type")]
+    image_type: Option<String>,
+    tag: Option<String>,
+}
+
+pub async fn get_image(
+    State(state): State<AppState>,
+    Path((item_id, image_type)): Path<(String, String)>,
+    Query(params): Query<ImageParams>,
+    req: http::Request<axum::body::Body>,
+) -> Result<Response, StatusCode> {
+
+    if let Some(tag) = params.tag {
+        // Jellyfin redirect tag.
+        if let Some(url) = tag.strip_prefix("redirect_") {
+            return Ok(Redirect::to(url).into_response().map(axum::body::Body::new));
+        }
+
+        // Jellyfin 'open local file' tag.
+        if let Some(file) = tag.strip_prefix("file_") {
+            // Let's only allow images, shall we.
+            const IMAGE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp"];
+            if let Some((_, ext)) = file.rsplit_once(".") {
+                if IMAGE_EXTENSIONS.contains(&ext) {
+                    let service = ServeFile::new(file);
+                    let response = service
+                        .oneshot(req)
+                        .await
+                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+                    return Ok(response.map(axum::body::Body::new));
+                }
+            }
+            return Err(StatusCode::NOT_FOUND);
+        }
+    }
+
+    let image_path = find_image_path(&state.collections, &item_id, &image_type)
+        .ok_or(StatusCode::NOT_FOUND)?;
+
+    let quality = match params.image_type.as_deref() {
+        Some("primary") | Some("logo") => state.config.jellyfin.image_quality_poster,
+        _ => None,
+    };
+
+    let serve_path = state
+        .image_resizer
+        .resize_image(&image_path, None, None, quality)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Use ServeFile for proper ETag and Range header support
+    let service = ServeFile::new(serve_path);
+    let response = service
+        .oneshot(req)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(response.map(axum::body::Body::new))
+}
+
+pub async fn get_image_indexed(
+    state: State<AppState>,
+    Path((item_id, image_type, _index)): Path<(String, String, String)>,
+    query: Query<ImageParams>,
+    req: http::Request<axum::body::Body>,
+) -> Result<Response, StatusCode> {
+    // Ignore index for now, as we don't support multiple images per type yet
+    get_image(state, Path((item_id, image_type)), query, req).await
+}
+
+pub async fn get_suggestions(
+    State(state): State<AppState>,
+    Query(params): Query<QueryParams>,
+) -> Json<QueryResult<BaseItemDto>> {
+    // Stub: Return latest items as suggestions for now
+    let limit = params.get("limit")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(12);
+        
+    // Reuse get_latest_items logic but return QueryResult
+    // We can just call the public get_latest_items if we construct the query, 
+    // but cleaner to just reimplement the simple fetch here.
+    
+    let mut all_items = Vec::new();
+    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
+    
+    // Get all collections
+    let collections = state.collections.list_collections().await;
+    for collection in collections {
+        let coll_id = &collection.id;
+        for movie in collection.movies.values() {
+            all_items.push((movie.date_created, convert_movie_to_dto(movie, coll_id, &server_id)));
+        }
+        for show in collection.shows.values() {
+            all_items.push((show.date_created, convert_show_to_dto(show, coll_id, &server_id)));
+        }
+    }
+    
+    // Sort by date descending
+    all_items.sort_by(|a, b| b.0.cmp(&a.0));
+    
+    // Take random slice or just top keys? 
+    // "Suggestions" usually implies "Similar", but without a similarity engine, 
+    // returning *something* valid is better than 404. 
+    // Let's return the latest items.
+    
+    let items: Vec<BaseItemDto> = all_items.into_iter()
+        .take(limit)
+        .map(|(_, dto)| dto)
+        .collect();
+        
+    Json(QueryResult {
+        items,
+        total_record_count: limit, // Approximation
+    })
+}
+
+pub async fn get_media_segments(
+    State(_state): State<AppState>,
+    Path(_item_id): Path<String>,
+) -> Json<QueryResult<serde_json::Value>> {
+    // Stub: No segments (Intro/Outro) known yet
+    Json(QueryResult {
+        items: vec![],
+        total_record_count: 0,
+    })
+}
+
+pub async fn search_hints(
+    State(state): State<AppState>,
+    Query(params): Query<QueryParams>,
+) -> Json<QueryResult<SearchHint>> {
+    let search_term = params.get("SearchTerm")
+        .or_else(|| params.get("searchTerm"))
+        .unwrap_or("");
+    
+    let limit = params.get("Limit")
+        .or_else(|| params.get("limit"))
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(20);
+    
+    let results = state.collections.search(search_term, limit)
+        .unwrap_or_default();
+    
+    let hints: Vec<SearchHint> = results.iter()
+        .map(|r| SearchHint {
+            item_id: r.id.clone(),
+            name: "".to_string(),
+            item_type: r.item_type.clone(),
+            production_year: None,
+        })
+        .collect();
+    
+    let count = hints.len();
+    Json(QueryResult {
+        items: hints,
+        total_record_count: count,
+    })
+}
+
+pub async fn get_resume_items(
+    State(state): State<AppState>,
+    Query(params): Query<QueryParams>,
+    req: Request<axum::body::Body>,
+) -> Result<Json<QueryResult<BaseItemDto>>, StatusCode> {
+    let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
+    
+    let limit = params.get("limit")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(10);
+    
+    let mut resume_items = Vec::new();
+    
+    if let Ok(db_user_data) = state.db.get_user_data_resume(&user_id, Some(limit as u32 * 2)).await {
+        let collections = state.collections.list_collections().await;
+        let server_id = state.config.jellyfin.server_id.as_deref().unwrap_or_default();
+
+        // Movies are easy and efficient to scan.
+        for collection in &collections {
+            for data in &db_user_data {
+                if let Some(movie) = collection.movies.get(&data.itemid) {
+                    let mut dto = convert_movie_to_dto(movie, &collection.id, server_id);
+                    dto.user_data = Some(UserData {
+                        playback_position_ticks: data.position.unwrap_or(0),
+                        played_percentage: data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
+                        play_count: data.playcount.unwrap_or(0),
+                        is_favorite: data.favorite.unwrap_or(false),
+                        last_played_date: data.timestamp.map(|t| t.to_rfc3339()),
+                        played: data.played.unwrap_or(false),
+                        key: data.itemid.clone(),
+                        unplayed_item_count: None,
+                    });
+                    resume_items.push(dto);
+                }
+            }   
+    
+            // Shows are more complex, as we need to scan the seasons and episodes.
+            for show in collection.shows.values() {
+                for season in show.seasons.values() {
+                    for episode in season.episodes.values() {
+                        for data in &db_user_data {
+                            if data.itemid == episode.id {
+                                let mut dto = convert_episode_to_dto(episode, &season.id, &show.id, &collection.id, &season.name, &show.name, server_id);
+                                    dto.user_data = Some(UserData {
+                                        playback_position_ticks: data.position.unwrap_or(0),
+                                        played_percentage: data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
+                                        play_count: data.playcount.unwrap_or(0),
+                                        is_favorite: data.favorite.unwrap_or(false),
+                                        last_played_date: data.timestamp.map(|t| t.to_rfc3339()),
+                                        played: data.played.unwrap_or(false),
+                                        key: episode.id.clone(),
+                                        unplayed_item_count: None,
+                                    });
+                                    resume_items.push(dto);
+                                }
+                            }
+                        }
+                    }
+                }
+        }
+    }
+    
+    let items: Vec<BaseItemDto> = resume_items.into_iter().take(limit).collect();
+    let count = items.len();
+    
+    Ok(Json(QueryResult {
+        items,
+        total_record_count: count,
+    }))
+}
+
