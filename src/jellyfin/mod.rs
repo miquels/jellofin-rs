@@ -4,6 +4,7 @@ pub mod device;
 pub mod genres;
 pub mod handlers;
 pub mod items;
+pub mod jellyfin;
 pub mod library;
 pub mod localization;
 pub mod metadata;
