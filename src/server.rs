@@ -1,16 +1,10 @@
-use axum::{
-    extract::Request,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::get,
-    Router,
-};
+use axum::{extract::Request, http::StatusCode, response::IntoResponse, routing::get, Router};
 use std::sync::Arc;
 use tower_http::{
     compression::CompressionLayer,
+    cors::{Any, CorsLayer},
     services::ServeDir,
     trace::TraceLayer,
-    cors::{CorsLayer, Any},
 };
 
 use crate::collection::CollectionRepo;
@@ -46,9 +40,18 @@ pub fn build_router(state: AppState) -> Router {
     let notflix_routes = Router::new()
         .route("/api/collections", get(crate::notflix::list_collections))
         .route("/api/collection/:id", get(crate::notflix::get_collection))
-        .route("/api/collection/:id/genres", get(crate::notflix::get_collection_genres))
-        .route("/api/collection/:id/items", get(crate::notflix::get_collection_items))
-        .route("/api/collection/:coll_id/item/:item_id", get(crate::notflix::get_item))
+        .route(
+            "/api/collection/:id/genres",
+            get(crate::notflix::get_collection_genres),
+        )
+        .route(
+            "/api/collection/:id/items",
+            get(crate::notflix::get_collection_items),
+        )
+        .route(
+            "/api/collection/:coll_id/item/:item_id",
+            get(crate::notflix::get_item),
+        )
         .route("/data/*path", get(crate::notflix::serve_data_file));
 
     let jellyfin_routes = crate::jellyfin::jellyfin::build_jellyfin_router(state.clone());
@@ -67,14 +70,16 @@ pub fn build_router(state: AppState) -> Router {
 
     router
         .layer(axum::middleware::from_fn(crate::middleware::normalize_path))
-        .layer(axum::middleware::from_fn_with_state(state.clone(), crate::middleware::log_request))
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            crate::middleware::log_request,
+        ))
         .layer(
             CorsLayer::new()
                 .allow_origin(Any)
                 .allow_methods(Any)
-                .allow_headers(Any)
+                .allow_headers(Any),
         )
-
         .layer(CompressionLayer::new())
         .layer(TraceLayer::new_for_http())
         .with_state(state)

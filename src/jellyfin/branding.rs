@@ -1,8 +1,8 @@
 use axum::{
     extract::State,
-    http::{StatusCode, HeaderMap, header},
-    Json,
+    http::{header, HeaderMap, StatusCode},
     response::IntoResponse,
+    Json,
 };
 use serde::{Deserialize, Serialize};
 
@@ -29,9 +29,7 @@ pub async fn get_branding_configuration(
     }))
 }
 
-pub async fn get_branding_css(
-    State(_state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn get_branding_css(State(_state): State<AppState>) -> impl IntoResponse {
     let css = "";
     let mut headers = HeaderMap::new();
     headers.insert(header::CONTENT_TYPE, "text/css".parse().unwrap());

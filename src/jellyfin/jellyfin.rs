@@ -1,11 +1,9 @@
-use axum::{
-    routing,
-    routing::get,
-    Router,
-};
 use crate::server::AppState;
+use axum::routing::{delete, get, post};
+use axum::Router;
 
 pub fn build_jellyfin_router(state: AppState) -> Router<AppState> {
+    #[cfg_attr(any(), rustfmt::skip)]
     Router::new()
         .route("/Branding/Configuration", get(super::branding::get_branding_configuration))
         .route("/Branding/Css", get(super::branding::get_branding_css))
@@ -21,7 +19,7 @@ pub fn build_jellyfin_router(state: AppState) -> Router<AppState> {
         .route("/Items", get(super::item::get_items))
         .route("/Items/:id", get(super::item::get_item_by_id))
         .route("/Items/:id/Ancestors", get(super::item::get_item_ancestors))
-        .route("/Items/:id/PlaybackInfo", routing::post(super::item::get_playback_info))
+        .route("/Items/:id/PlaybackInfo", post(super::item::get_playback_info))
         .route("/Items/:id/Similar", get(super::item::get_similar_items))
         .route("/Items/:id/SpecialFeatures", get(super::item::get_special_features))
         .route("/Items/:id/ThemeSongs", get(super::item::get_theme_songs))
@@ -38,23 +36,32 @@ pub fn build_jellyfin_router(state: AppState) -> Router<AppState> {
         .route("/Movies/Recommendations", get(super::movie::get_movie_recommendations))
         .route("/Persons", get(super::person::get_persons))
         .route("/Persons/:name", get(super::person::get_person_by_name))
-        .route("/Playlists", routing::post(super::playlist::create_playlist))
-        .route("/Playlists/:playlist_id", get(super::playlist::get_playlist).post(super::playlist::update_playlist))
-        .route("/Playlists/:playlist_id/Items", get(super::playlist::get_playlist_items).post(super::playlist::add_playlist_items).delete(super::playlist::delete_playlist_items))
+        .route("/Playlists", post(super::playlist::create_playlist))
+        .route(
+            "/Playlists/:playlist_id",
+            get(super::playlist::get_playlist)
+                .post(super::playlist::update_playlist),
+        )
+        .route(
+            "/Playlists/:playlist_id/Items",
+            get(super::playlist::get_playlist_items)
+                .post(super::playlist::add_playlist_items)
+                .delete(super::playlist::delete_playlist_items),
+        )
         .route("/Playlists/:playlist_id/Users", get(super::playlist::get_playlist_users))
         .route("/Playlists/:playlist_id/Users/:user_id", get(super::playlist::get_playlist_user))
         .route("/Plugins", get(super::system::plugins))
-        .route("/QuickConnect/Authorize",  get(super::auth::quick_connect_authorize))
-        .route("/QuickConnect/Connect",    get(super::auth::quick_connect_connect))
-        .route("/QuickConnect/Enabled",    get(super::auth::quick_connect_enabled))
-        .route("/QuickConnect/Initiate",   routing::post(super::auth::quick_connect_initiate))
+        .route("/QuickConnect/Authorize", get(super::auth::quick_connect_authorize))
+        .route("/QuickConnect/Connect", get(super::auth::quick_connect_connect))
+        .route("/QuickConnect/Enabled", get(super::auth::quick_connect_enabled))
+        .route("/QuickConnect/Initiate", post(super::auth::quick_connect_initiate))
         .route("/Search/Hints", get(super::item::search_hints))
         .route("/Sessions", get(super::session::get_sessions))
-        .route("/Sessions/Capabilities", routing::post(super::session::post_session_capabilities))
-        .route("/Sessions/Capabilities/Full", routing::post(super::session::post_session_capabilities_full))
-        .route("/Sessions/Playing", routing::post(super::userdata::session_playing_progress))
-        .route("/Sessions/Playing/Progress", routing::post(super::userdata::session_playing_progress))
-        .route("/Sessions/Playing/Stopped", routing::post(super::userdata::session_playing_progress))
+        .route("/Sessions/Capabilities", post(super::session::post_session_capabilities))
+        .route("/Sessions/Capabilities/Full", post(super::session::post_session_capabilities_full))
+        .route("/Sessions/Playing", post(super::userdata::session_playing_progress))
+        .route("/Sessions/Playing/Progress", post(super::userdata::session_playing_progress))
+        .route("/Sessions/Playing/Stopped", post(super::userdata::session_playing_progress))
         .route("/Shows/:id/Episodes", get(super::show::get_episodes))
         .route("/Shows/:id/Seasons", get(super::show::get_seasons))
         .route("/Shows/NextUp", get(super::show::get_next_up))
@@ -65,18 +72,18 @@ pub fn build_jellyfin_router(state: AppState) -> Router<AppState> {
         .route("/System/Ping", get(super::system::system_ping_handler))
         .route("/UserViews", get(super::user::get_user_views))
         .route("/Users", get(super::user::get_users))
-        .route("/Users/AuthenticateByName", routing::post(super::auth::authenticate_by_name))
+        .route("/Users/AuthenticateByName", post(super::auth::authenticate_by_name))
         .route("/Users/Me", get(super::user::get_current_user))
-        .route("/Users/:user_id/FavoriteItems/:id", routing::post(super::userdata::mark_favorite))
-        .route("/Users/:user_id/FavoriteItems/:id", routing::delete(super::userdata::unmark_favorite))
+        .route("/Users/:user_id/FavoriteItems/:id", post(super::userdata::mark_favorite))
+        .route("/Users/:user_id/FavoriteItems/:id", delete(super::userdata::unmark_favorite))
         .route("/Users/:user_id/Images/:image_type", get(super::user::get_user_image))
         .route("/Users/:user_id/Items", get(super::item::get_items))
         .route("/Users/:user_id/Items/Latest", get(super::item::get_latest_items))
         .route("/Users/:user_id/Items/Resume", get(super::item::get_resume_items))
         .route("/Users/:user_id/Items/:id", get(super::item::get_user_item_by_id))
-        .route("/Users/:user_id/PlayedItems/:id", routing::delete(super::userdata::mark_unplayed))
-        .route("/Users/:user_id/PlayedItems/:id", routing::post(super::userdata::mark_played))
-        .route("/Users/:user_id/PlayingItems/:id/Progress", routing::post(super::userdata::update_playback_position))
+        .route("/Users/:user_id/PlayedItems/:id", delete(super::userdata::mark_unplayed))
+        .route("/Users/:user_id/PlayedItems/:id", post(super::userdata::mark_played))
+        .route("/Users/:user_id/PlayingItems/:id/Progress", post(super::userdata::update_playback_position))
         .route("/Users/:user_id/Views", get(super::user::get_user_views))
         .route("/Videos/:id/:index/Subtitles", get(super::video::stream_subtitle))
         .route("/Videos/:id/Subtitles/:index/Stream", get(super::video::stream_subtitle))
@@ -88,14 +95,11 @@ pub fn build_jellyfin_router(state: AppState) -> Router<AppState> {
         .route("/UserViews/GroupingOptions", get(super::user::get_grouping_options))
         .route("/UserItems/Resume", get(super::item::get_resume_items))
         .route("/UserItems/:id/Userdata", get(super::userdata::get_item_user_data))
-        .route("/UserFavoriteItems/:id", routing::post(super::userdata::mark_favorite))
-        .route("/UserFavoriteItems/:id", routing::delete(super::userdata::unmark_favorite))
-        .route("/UserPlayedItems/:id", routing::post(super::userdata::mark_played))
-        .route("/UserPlayedItems/:id", routing::delete(super::userdata::mark_unplayed))
+        .route("/UserFavoriteItems/:id", post(super::userdata::mark_favorite))
+        .route("/UserFavoriteItems/:id", delete(super::userdata::unmark_favorite))
+        .route("/UserPlayedItems/:id", post(super::userdata::mark_played))
+        .route("/UserPlayedItems/:id", delete(super::userdata::mark_unplayed))
         .route("/health", get(super::system::health_handler))
-        .layer(axum::middleware::from_fn_with_state(
-            state,
-            super::auth::auth_middleware,
-        ))
+        .layer(axum::middleware::from_fn_with_state(state, super::auth::auth_middleware))
         .layer(axum::middleware::from_fn(crate::middleware::etag_validation))
 }

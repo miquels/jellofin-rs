@@ -6,12 +6,12 @@ use axum::{
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::db::{PlaylistRepo, Playlist as DbPlaylist};
-use crate::server::AppState;
 use super::auth::get_user_id;
 use super::item::{convert_episode_to_dto, convert_movie_to_dto};
-use crate::util::QueryParams;
 use super::types::*;
+use crate::db::{Playlist as DbPlaylist, PlaylistRepo};
+use crate::server::AppState;
+use crate::util::QueryParams;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreatePlaylistRequest {
@@ -54,41 +54,39 @@ pub async fn create_playlist(
     req: Request<axum::body::Body>,
 ) -> Result<Json<CreatePlaylistResponse>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
+
     // Parse JSON body
     let (_parts, body) = req.into_parts();
-    let bytes = axum::body::to_bytes(body, usize::MAX).await
+    let bytes = axum::body::to_bytes(body, usize::MAX)
+        .await
         .map_err(|_| StatusCode::BAD_REQUEST)?;
-    
-    let create_req: CreatePlaylistRequest = serde_json::from_slice(&bytes)
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
-    
+
+    let create_req: CreatePlaylistRequest =
+        serde_json::from_slice(&bytes).map_err(|_| StatusCode::BAD_REQUEST)?;
+
     let name = create_req.name.ok_or(StatusCode::BAD_REQUEST)?;
     let playlist_user_id = create_req.user_id.unwrap_or(user_id.clone());
     let item_ids = create_req.ids.unwrap_or_default();
-    
+
     let playlist_id = generate_playlist_id(&name);
-    
+
     let playlist = DbPlaylist {
         id: playlist_id.clone(),
         userid: playlist_user_id,
         name,
         timestamp: Some(Utc::now()),
     };
-    
-    state.db.create_playlist(&playlist).await
-        .map_err(|e| {
-            tracing::error!("Failed to create playlist: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-    
+
+    state.db.create_playlist(&playlist).await.map_err(|e| {
+        tracing::error!("Failed to create playlist: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
     for item_id in &item_ids {
         let _ = state.db.add_item_to_playlist(&playlist_id, item_id).await;
     }
-    
-    Ok(Json(CreatePlaylistResponse {
-        id: playlist_id,
-    }))
+
+    Ok(Json(CreatePlaylistResponse { id: playlist_id }))
 }
 
 pub async fn get_playlist(
@@ -97,17 +95,23 @@ pub async fn get_playlist(
     req: Request<axum::body::Body>,
 ) -> Result<Json<GetPlaylistResponse>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    let playlist = state.db.get_playlist(&playlist_id).await
+
+    let playlist = state
+        .db
+        .get_playlist(&playlist_id)
+        .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
+
     if playlist.userid != user_id {
         return Err(StatusCode::FORBIDDEN);
     }
-    
-    let item_ids = state.db.get_playlist_items(&playlist_id).await
+
+    let item_ids = state
+        .db
+        .get_playlist_items(&playlist_id)
+        .await
         .unwrap_or_default();
-    
+
     Ok(Json(GetPlaylistResponse {
         open_access: false,
         shares: vec![],
@@ -121,19 +125,25 @@ pub async fn get_playlist_items(
     req: Request<axum::body::Body>,
 ) -> Result<Json<QueryResult<BaseItemDto>>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    let playlist = state.db.get_playlist(&playlist_id).await
+
+    let playlist = state
+        .db
+        .get_playlist(&playlist_id)
+        .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
+
     if playlist.userid != user_id {
         return Err(StatusCode::FORBIDDEN);
     }
-    
-    let item_ids = state.db.get_playlist_items(&playlist_id).await
+
+    let item_ids = state
+        .db
+        .get_playlist_items(&playlist_id)
+        .await
         .unwrap_or_default();
-    
+
     let mut items = Vec::new();
-    
+
     for item_id in &item_ids {
         for collection in state.collections.list_collections().await {
             if let Some(movie) = collection.movies.get(item_id) {
@@ -141,12 +151,13 @@ pub async fn get_playlist_items(
                 items.push(convert_movie_to_dto(movie, &collection.id, &server_id));
                 break;
             }
-            
+
             for show in collection.shows.values() {
                 for season in show.seasons.values() {
                     for episode in season.episodes.values() {
                         if &episode.id == item_id {
-                            let server_id = state.config.jellyfin.server_id.clone().unwrap_or_default();
+                            let server_id =
+                                state.config.jellyfin.server_id.clone().unwrap_or_default();
                             items.push(convert_episode_to_dto(
                                 episode,
                                 &season.id,
@@ -163,9 +174,9 @@ pub async fn get_playlist_items(
             }
         }
     }
-    
+
     let count = items.len();
-    
+
     Ok(Json(QueryResult {
         items,
         total_record_count: count,
@@ -179,26 +190,30 @@ pub async fn add_playlist_items(
     req: Request<axum::body::Body>,
 ) -> Result<StatusCode, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    let playlist = state.db.get_playlist(&playlist_id).await
+
+    let playlist = state
+        .db
+        .get_playlist(&playlist_id)
+        .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
+
     if playlist.userid != user_id {
         return Err(StatusCode::FORBIDDEN);
     }
-    
-    let item_ids = params.get("ids")
+
+    let item_ids = params
+        .get("ids")
         .map(|ids| {
             ids.split(',')
                 .map(|id| id.trim().to_string())
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
-    
+
     for item_id in item_ids {
         let _ = state.db.add_item_to_playlist(&playlist_id, &item_id).await;
     }
-    
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -209,26 +224,33 @@ pub async fn delete_playlist_items(
     req: Request<axum::body::Body>,
 ) -> Result<StatusCode, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    let playlist = state.db.get_playlist(&playlist_id).await
+
+    let playlist = state
+        .db
+        .get_playlist(&playlist_id)
+        .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
+
     if playlist.userid != user_id {
         return Err(StatusCode::FORBIDDEN);
     }
-    
-    let item_ids = params.get("ids")
+
+    let item_ids = params
+        .get("ids")
         .map(|ids| {
             ids.split(',')
                 .map(|id| id.trim().to_string())
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
-    
+
     for item_id in item_ids {
-        let _ = state.db.remove_item_from_playlist(&playlist_id, &item_id).await;
+        let _ = state
+            .db
+            .remove_item_from_playlist(&playlist_id, &item_id)
+            .await;
     }
-    
+
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -238,7 +260,7 @@ pub async fn get_playlist_users(
     req: Request<axum::body::Body>,
 ) -> Result<Json<Vec<PlaylistAccess>>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
+
     Ok(Json(vec![PlaylistAccess {
         users: vec![user_id],
         can_edit: true,
@@ -251,7 +273,7 @@ pub async fn get_playlist_user(
     req: Request<axum::body::Body>,
 ) -> Result<Json<PlaylistAccess>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
+
     Ok(Json(PlaylistAccess {
         users: vec![user_id],
         can_edit: true,
@@ -264,39 +286,42 @@ pub async fn update_playlist(
     req: Request<axum::body::Body>,
 ) -> Result<StatusCode, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
+
     // Check if playlist exists and user owns it
-    let playlist = state.db.get_playlist(&playlist_id).await
+    let playlist = state
+        .db
+        .get_playlist(&playlist_id)
+        .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
+
     if playlist.userid != user_id {
         return Err(StatusCode::FORBIDDEN);
     }
-    
+
     // Parse update request (Stub: We assume success essentially, as we just need to satisfy the client for now)
     // Real implementation would parse body and update Name/Public status.
-    
+
     Ok(StatusCode::NO_CONTENT)
 }
 
 fn generate_playlist_id(name: &str) -> String {
-    use sha2::{Sha256, Digest};
-    
+    use sha2::{Digest, Sha256};
+
     let mut hasher = Sha256::new();
     hasher.update(format!("playlist:{}:{}", name, chrono::Utc::now().to_rfc3339()).as_bytes());
     let hash = hasher.finalize();
-    
+
     let mut num = [0u8; 16];
     num.copy_from_slice(&hash[..16]);
-    
+
     let mut value = u128::from_be_bytes(num);
     value >>= 9;
-    
+
     let mut id = String::with_capacity(20);
     for _ in 0..20 {
         let remainder = (value % 62) as u8;
         value /= 62;
-        
+
         let c = if remainder < 10 {
             (remainder + 48) as char
         } else if remainder < 36 {
@@ -306,6 +331,6 @@ fn generate_playlist_id(name: &str) -> String {
         };
         id.push(c);
     }
-    
+
     id
 }

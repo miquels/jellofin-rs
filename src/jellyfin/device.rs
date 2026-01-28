@@ -6,10 +6,10 @@ use axum::{
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use super::auth::get_user_id;
 use crate::db::{AccessTokenRepo, UserRepo};
 use crate::server::AppState;
 use crate::util::QueryParams;
-use super::auth::get_user_id;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeviceItem {
@@ -68,13 +68,19 @@ pub async fn get_devices(
     req: Request<axum::body::Body>,
 ) -> Result<Json<DeviceInfoResponse>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    let user = state.db.get_user_by_id(&user_id).await
+
+    let user = state
+        .db
+        .get_user_by_id(&user_id)
+        .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
-    let tokens = state.db.list_tokens_by_user(&user_id).await
+
+    let tokens = state
+        .db
+        .list_tokens_by_user(&user_id)
+        .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     let devices: Vec<DeviceItem> = tokens
         .into_iter()
         .map(|token| DeviceItem {
@@ -93,9 +99,9 @@ pub async fn get_devices(
             },
         })
         .collect();
-    
+
     let count = devices.len();
-    
+
     Ok(Json(DeviceInfoResponse {
         items: devices,
         total_record_count: count,
@@ -109,21 +115,26 @@ pub async fn delete_device(
     req: Request<axum::body::Body>,
 ) -> Result<StatusCode, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    let device_id = params.get("id")
-        .ok_or(StatusCode::BAD_REQUEST)?;
-    
-    let tokens = state.db.list_tokens_by_user(&user_id).await
+
+    let device_id = params.get("id").ok_or(StatusCode::BAD_REQUEST)?;
+
+    let tokens = state
+        .db
+        .list_tokens_by_user(&user_id)
+        .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     for token in tokens {
         if token.deviceid.as_deref() == Some(device_id) {
-            state.db.delete_token(&token.token).await
+            state
+                .db
+                .delete_token(&token.token)
+                .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             return Ok(StatusCode::NO_CONTENT);
         }
     }
-    
+
     Err(StatusCode::NOT_FOUND)
 }
 
@@ -133,16 +144,21 @@ pub async fn get_device_info(
     req: Request<axum::body::Body>,
 ) -> Result<Json<DeviceItem>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    let device_id = params.get("id")
-        .ok_or(StatusCode::BAD_REQUEST)?;
-    
-    let user = state.db.get_user_by_id(&user_id).await
+
+    let device_id = params.get("id").ok_or(StatusCode::BAD_REQUEST)?;
+
+    let user = state
+        .db
+        .get_user_by_id(&user_id)
+        .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
-    let tokens = state.db.list_tokens_by_user(&user_id).await
+
+    let tokens = state
+        .db
+        .list_tokens_by_user(&user_id)
+        .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     for token in tokens {
         if token.deviceid.as_deref() == Some(device_id) {
             return Ok(Json(DeviceItem {
@@ -162,7 +178,7 @@ pub async fn get_device_info(
             }));
         }
     }
-    
+
     Err(StatusCode::NOT_FOUND)
 }
 
@@ -172,13 +188,15 @@ pub async fn get_device_options(
     req: Request<axum::body::Body>,
 ) -> Result<Json<DeviceOptions>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    let device_id = params.get("id")
-        .ok_or(StatusCode::BAD_REQUEST)?;
-    
-    let tokens = state.db.list_tokens_by_user(&user_id).await
+
+    let device_id = params.get("id").ok_or(StatusCode::BAD_REQUEST)?;
+
+    let tokens = state
+        .db
+        .list_tokens_by_user(&user_id)
+        .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     for token in tokens {
         if token.deviceid.as_deref() == Some(device_id) {
             return Ok(Json(DeviceOptions {
@@ -188,6 +206,6 @@ pub async fn get_device_options(
             }));
         }
     }
-    
+
     Err(StatusCode::NOT_FOUND)
 }

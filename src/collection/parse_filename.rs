@@ -23,7 +23,7 @@ fn get_patterns() -> &'static Vec<Regex> {
 
 pub fn parse_episode_from_filename(filename: &str) -> Option<EpisodeInfo> {
     let patterns = get_patterns();
-    
+
     for pattern in patterns {
         if let Some(caps) = pattern.captures(filename) {
             if caps.get(0).unwrap().as_str().contains('-') {
@@ -42,7 +42,7 @@ pub fn parse_episode_from_filename(filename: &str) -> Option<EpisodeInfo> {
                 let season = caps.get(1)?.as_str().parse::<i32>().ok()?;
                 let episode = caps.get(2)?.as_str().parse::<i32>().ok()?;
                 let end_episode = caps.get(3).and_then(|m| m.as_str().parse::<i32>().ok());
-                
+
                 return Some(EpisodeInfo {
                     season,
                     episode,
@@ -51,17 +51,17 @@ pub fn parse_episode_from_filename(filename: &str) -> Option<EpisodeInfo> {
             }
         }
     }
-    
+
     None
 }
 
 pub fn clean_title(filename: &str) -> String {
     let mut title = filename.to_string();
-    
+
     if let Some(pos) = title.rfind('.') {
         title = title[..pos].to_string();
     }
-    
+
     let patterns = get_patterns();
     for pattern in patterns {
         if let Some(m) = pattern.find(&title) {
@@ -69,10 +69,10 @@ pub fn clean_title(filename: &str) -> String {
             break;
         }
     }
-    
+
     title = title.replace('_', " ");
     title = title.replace('.', " ");
-    
+
     title.trim().to_string()
 }
 
@@ -112,13 +112,7 @@ mod tests {
 
     #[test]
     fn test_clean_title() {
-        assert_eq!(
-            clean_title("Show.Name.S01E04.1080p.mkv"),
-            "Show Name"
-        );
-        assert_eq!(
-            clean_title("Another_Show_3x08.mp4"),
-            "Another Show"
-        );
+        assert_eq!(clean_title("Show.Name.S01E04.1080p.mkv"), "Show Name");
+        assert_eq!(clean_title("Another_Show_3x08.mp4"), "Another Show");
     }
 }

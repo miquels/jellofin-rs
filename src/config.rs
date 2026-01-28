@@ -113,10 +113,10 @@ impl Config {
     pub fn from_file(path: &str) -> Result<Self, ConfigError> {
         let content = std::fs::read_to_string(path)
             .map_err(|e| ConfigError::ReadError(path.to_string(), e))?;
-        
+
         let config: Config = serde_yaml::from_str(&content)
             .map_err(|e| ConfigError::ParseError(path.to_string(), e))?;
-        
+
         Ok(config)
     }
 
@@ -124,12 +124,12 @@ impl Config {
         if let Some(ref sqlite) = self.database.sqlite {
             return Some(sqlite.filename.clone());
         }
-        
+
         if let Some(ref dbdir) = self.dbdir {
             let path = PathBuf::from(dbdir).join("tink-items.db");
             return Some(path.to_string_lossy().to_string());
         }
-        
+
         None
     }
 }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Deserializer};
 
 #[derive(Debug)]
-pub struct QueryParams{
+pub struct QueryParams {
     map: HashMap<String, String>,
 }
 
@@ -14,7 +14,7 @@ impl<'de> Deserialize<'de> for QueryParams {
     {
         // Deserialize into a temporary normal map first
         let map = HashMap::<String, String>::deserialize(deserializer)?;
-        Ok(QueryParams{ map})
+        Ok(QueryParams { map })
     }
 }
 

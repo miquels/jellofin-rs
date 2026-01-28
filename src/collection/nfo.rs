@@ -28,7 +28,7 @@ pub fn parse_nfo_file(path: &Path) -> Option<NfoMetadata> {
 
 pub fn parse_nfo_content(content: &str) -> Option<NfoMetadata> {
     let mut metadata = NfoMetadata::default();
-    
+
     metadata.title = extract_tag(content, "title");
     metadata.original_title = extract_tag(content, "originaltitle");
     metadata.sort_title = extract_tag(content, "sorttitle");
@@ -36,51 +36,53 @@ pub fn parse_nfo_content(content: &str) -> Option<NfoMetadata> {
     metadata.tagline = extract_tag(content, "tagline");
     metadata.mpaa = extract_tag(content, "mpaa");
     metadata.runtime = extract_tag(content, "runtime");
-    
+
     if metadata.runtime.is_none() {
         // Try to find duration in fileinfo/streamdetails/video
         // Structure: <fileinfo><streamdetails><video><duration>...</duration></video></streamdetails></fileinfo>
         // extract_tag finds the first occurrence, which should work for the main video stream
         if let Some(fileinfo) = extract_tag(content, "fileinfo") {
-             if let Some(streamdetails) = extract_tag(&fileinfo, "streamdetails") {
-                 if let Some(video) = extract_tag(&streamdetails, "video") {
-                     if let Some(duration) = extract_tag(&video, "duration") {
-                         // Duration is usually in minutes (float)
-                         if let Ok(mins) = duration.parse::<f64>() {
-                             metadata.runtime = Some((mins.round() as i64).to_string());
-                         }
-                     }
-                     
-                     if metadata.runtime.is_none() {
-                         if let Some(seconds) = extract_tag(&video, "durationinseconds") {
-                             if let Ok(secs) = seconds.parse::<f64>() {
-                                 let mins = (secs / 60.0).round() as i64;
-                                 metadata.runtime = Some(mins.to_string());
-                             }
-                         }
-                     }
-                 }
-             }
+            if let Some(streamdetails) = extract_tag(&fileinfo, "streamdetails") {
+                if let Some(video) = extract_tag(&streamdetails, "video") {
+                    if let Some(duration) = extract_tag(&video, "duration") {
+                        // Duration is usually in minutes (float)
+                        if let Ok(mins) = duration.parse::<f64>() {
+                            metadata.runtime = Some((mins.round() as i64).to_string());
+                        }
+                    }
+
+                    if metadata.runtime.is_none() {
+                        if let Some(seconds) = extract_tag(&video, "durationinseconds") {
+                            if let Ok(secs) = seconds.parse::<f64>() {
+                                let mins = (secs / 60.0).round() as i64;
+                                metadata.runtime = Some(mins.to_string());
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
-    
+
     if let Some(rating_str) = extract_tag(content, "rating") {
         metadata.rating = rating_str.parse::<f64>().ok();
     }
-    
+
     if let Some(year_str) = extract_tag(content, "year") {
         metadata.year = year_str.parse::<i32>().ok();
     }
-    
-    if let Some(premiered_str) = extract_tag(content, "premiered").or_else(|| extract_tag(content, "aired")) {
+
+    if let Some(premiered_str) =
+        extract_tag(content, "premiered").or_else(|| extract_tag(content, "aired"))
+    {
         if let Ok(date) = NaiveDate::parse_from_str(&premiered_str, "%Y-%m-%d") {
             metadata.premiered = Some(date.and_hms_opt(0, 0, 0)?.and_utc());
         }
     }
-    
+
     metadata.genres = extract_all_tags(content, "genre");
     metadata.studios = extract_all_tags(content, "studio");
-    
+
     for actor_block in extract_blocks(content, "actor") {
         if let Some(name) = extract_tag(&actor_block, "name") {
             let role = extract_tag(&actor_block, "role");
@@ -91,7 +93,7 @@ pub fn parse_nfo_content(content: &str) -> Option<NfoMetadata> {
             });
         }
     }
-    
+
     for director in extract_all_tags(content, "director") {
         metadata.people.push(Person {
             name: director,
@@ -99,7 +101,7 @@ pub fn parse_nfo_content(content: &str) -> Option<NfoMetadata> {
             person_type: PersonType::Director,
         });
     }
-    
+
     for writer in extract_all_tags(content, "credits") {
         metadata.people.push(Person {
             name: writer,
@@ -107,17 +109,17 @@ pub fn parse_nfo_content(content: &str) -> Option<NfoMetadata> {
             person_type: PersonType::Writer,
         });
     }
-    
+
     Some(metadata)
 }
 
 fn extract_tag(content: &str, tag: &str) -> Option<String> {
     let start_tag = format!("<{}>", tag);
     let end_tag = format!("</{}>", tag);
-    
+
     let start = content.find(&start_tag)? + start_tag.len();
     let end = content[start..].find(&end_tag)? + start;
-    
+
     let value = content[start..end].trim();
     if value.is_empty() {
         None
@@ -131,7 +133,7 @@ fn extract_all_tags(content: &str, tag: &str) -> Vec<String> {
     let end_tag = format!("</{}>", tag);
     let mut results = Vec::new();
     let mut search_from = 0;
-    
+
     while let Some(start_pos) = content[search_from..].find(&start_tag) {
         let start = search_from + start_pos + start_tag.len();
         if let Some(end_pos) = content[start..].find(&end_tag) {
@@ -145,7 +147,7 @@ fn extract_all_tags(content: &str, tag: &str) -> Vec<String> {
             break;
         }
     }
-    
+
     results
 }
 
@@ -154,7 +156,7 @@ fn extract_blocks(content: &str, tag: &str) -> Vec<String> {
     let end_tag = format!("</{}>", tag);
     let mut results = Vec::new();
     let mut search_from = 0;
-    
+
     while let Some(start_pos) = content[search_from..].find(&start_tag) {
         let start = search_from + start_pos;
         if let Some(end_pos) = content[start..].find(&end_tag) {
@@ -165,7 +167,7 @@ fn extract_blocks(content: &str, tag: &str) -> Vec<String> {
             break;
         }
     }
-    
+
     results
 }
 
@@ -196,7 +198,7 @@ mod tests {
                 <director>John Doe</director>
             </movie>
         "#;
-        
+
         let metadata = parse_nfo_content(nfo).unwrap();
         assert_eq!(metadata.title, Some("Test Movie".to_string()));
         assert_eq!(metadata.original_title, Some("Original Title".to_string()));

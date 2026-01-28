@@ -7,7 +7,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 struct Args {
     #[arg(short, long, default_value = "jellofin-server.yaml")]
     config: String,
-    
+
     #[arg(long)]
     debug_logs: bool,
 }

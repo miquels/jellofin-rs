@@ -1,7 +1,6 @@
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 pub fn generate_id(name: &str) -> String {
-
     // Create hash from name only (matching Go server behavior)
     let mut hasher = Sha256::new();
     hasher.update(name.as_bytes());
@@ -22,11 +21,11 @@ pub fn generate_id(name: &str) -> String {
         value /= 62;
 
         let c = if remainder < 10 {
-            (remainder + 48) as char  // 0-9
+            (remainder + 48) as char // 0-9
         } else if remainder < 36 {
-            (remainder + 65 - 10) as char  // A-Z
+            (remainder + 65 - 10) as char // A-Z
         } else {
-            (remainder + 97 - 36) as char  // a-z
+            (remainder + 97 - 36) as char // a-z
         };
         id.push(c);
     }

@@ -7,9 +7,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use super::auth::get_user_id;
 use crate::db::{AccessTokenRepo, UserRepo};
 use crate::server::AppState;
-use super::auth::get_user_id;
 
 const SESSION_ID: &str = "e3a869b7a901f8894de8ee65688db6c0";
 
@@ -82,72 +82,91 @@ pub async fn get_sessions(
     req: Request<axum::body::Body>,
 ) -> Result<Json<Vec<SessionInfo>>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    let user = state.db.get_user_by_id(&user_id).await
+
+    let user = state
+        .db
+        .get_user_by_id(&user_id)
+        .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
-    let tokens = state.db.list_tokens_by_user(&user_id).await
+
+    let tokens = state
+        .db
+        .list_tokens_by_user(&user_id)
+        .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     // Keep most recent token per device ID only
     let mut unique_tokens = HashMap::new();
     for token in tokens {
         if let Some(device_id) = &token.deviceid {
             if let Some(&existing) = unique_tokens.get(device_id) {
                 if token.created.unwrap_or_else(|| chrono::Utc::now()) > existing {
-                    unique_tokens.insert(device_id.clone(), token.created.unwrap_or_else(|| chrono::Utc::now()));
+                    unique_tokens.insert(
+                        device_id.clone(),
+                        token.created.unwrap_or_else(|| chrono::Utc::now()),
+                    );
                 }
             } else {
-                unique_tokens.insert(device_id.clone(), token.created.unwrap_or_else(|| chrono::Utc::now()));
+                unique_tokens.insert(
+                    device_id.clone(),
+                    token.created.unwrap_or_else(|| chrono::Utc::now()),
+                );
             }
         }
     }
-    
+
     // Get tokens again and filter to unique ones
-    let all_tokens = state.db.list_tokens_by_user(&user_id).await
+    let all_tokens = state
+        .db
+        .list_tokens_by_user(&user_id)
+        .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     let mut sessions = Vec::new();
     for token in all_tokens {
         if let Some(device_id) = &token.deviceid {
             if let Some(&last_activity) = unique_tokens.get(device_id) {
                 if token.created.unwrap_or_else(|| chrono::Utc::now()) == last_activity {
                     sessions.push(SessionInfo {
-                    id: SESSION_ID.to_string(),
-                    user_id: token.userid.clone(),
-                    user_name: user.username.clone(),
-                    last_activity_date: token.created.unwrap_or_else(|| chrono::Utc::now()),
-                    remote_end_point: String::new(),
-                    device_name: token.devicename.clone().unwrap_or_default(),
-                    device_id: token.deviceid.clone().unwrap_or_default(),
-                    client: token.applicationname.clone().unwrap_or_default(),
-                    application_version: token.applicationversion.clone().unwrap_or_default(),
-                    is_active: true,
-                    supports_media_control: false,
-                    supports_remote_control: false,
-                    has_custom_device_name: false,
-                    server_id: state.config.jellyfin.server_id.clone()
-                        .unwrap_or_else(|| "jellyfin-rs".to_string()),
-                    additional_users: vec![],
-                    play_state: SessionPlayState {
-                        repeat_mode: "RepeatNone".to_string(),
-                        playback_order: "Default".to_string(),
-                    },
-                    capabilities: SessionCapabilities {
-                        playable_media_types: vec![],
+                        id: SESSION_ID.to_string(),
+                        user_id: token.userid.clone(),
+                        user_name: user.username.clone(),
+                        last_activity_date: token.created.unwrap_or_else(|| chrono::Utc::now()),
+                        remote_end_point: String::new(),
+                        device_name: token.devicename.clone().unwrap_or_default(),
+                        device_id: token.deviceid.clone().unwrap_or_default(),
+                        client: token.applicationname.clone().unwrap_or_default(),
+                        application_version: token.applicationversion.clone().unwrap_or_default(),
+                        is_active: true,
+                        supports_media_control: false,
+                        supports_remote_control: false,
+                        has_custom_device_name: false,
+                        server_id: state
+                            .config
+                            .jellyfin
+                            .server_id
+                            .clone()
+                            .unwrap_or_else(|| "jellyfin-rs".to_string()),
+                        additional_users: vec![],
+                        play_state: SessionPlayState {
+                            repeat_mode: "RepeatNone".to_string(),
+                            playback_order: "Default".to_string(),
+                        },
+                        capabilities: SessionCapabilities {
+                            playable_media_types: vec![],
+                            supported_commands: vec![],
+                            supports_persistent_identifier: true,
+                        },
+                        now_playing_queue: vec![],
+                        now_playing_queue_full_items: vec![],
                         supported_commands: vec![],
-                        supports_persistent_identifier: true,
-                    },
-                    now_playing_queue: vec![],
-                    now_playing_queue_full_items: vec![],
-                    supported_commands: vec![],
-                    playable_media_types: vec![],
-                });
+                        playable_media_types: vec![],
+                    });
                 }
             }
         }
     }
-    
+
     Ok(Json(sessions))
 }
 

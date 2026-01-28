@@ -1,8 +1,4 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    Json,
-};
+use axum::{extract::State, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 
 use crate::server::AppState;
@@ -33,16 +29,16 @@ pub async fn get_virtual_folders(
 
     // Map existing collections to VirtualFolders
     for collection in state.collections.list_collections().await {
-         folders.push(VirtualFolderInfo {
-             name: collection.name.clone(),
-             locations: vec![collection.directory.to_string_lossy().to_string()], // Assuming single location for now
-             collection_type: Some(format!("{:?}", collection.collection_type)),
-             library_options: Some(LibraryOptions { enabled: true }),
-             item_id: collection.id.clone(),
-             primary_image_item_id: collection.id.clone(),
-             refresh_progress: None,
-             refresh_status: None,
-         });
+        folders.push(VirtualFolderInfo {
+            name: collection.name.clone(),
+            locations: vec![collection.directory.to_string_lossy().to_string()], // Assuming single location for now
+            collection_type: Some(format!("{:?}", collection.collection_type)),
+            library_options: Some(LibraryOptions { enabled: true }),
+            item_id: collection.id.clone(),
+            primary_image_item_id: collection.id.clone(),
+            refresh_progress: None,
+            refresh_status: None,
+        });
     }
 
     Ok(Json(folders))

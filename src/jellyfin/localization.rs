@@ -1,10 +1,6 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    Json,
-};
-use serde::{Deserialize, Serialize};
 use crate::server::AppState;
+use axum::{extract::State, http::StatusCode, Json};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CultureDto {
@@ -85,7 +81,7 @@ pub async fn get_cultures(
             three_letter_iso_language_name: Some("nld".to_string()),
         },
     ];
-    
+
     Ok(Json(cultures))
 }
 
@@ -148,7 +144,7 @@ pub async fn get_countries(
             three_letter_iso_region_name: Some("NLD".to_string()),
         },
     ];
-    
+
     Ok(Json(countries))
 }
 

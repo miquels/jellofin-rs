@@ -27,7 +27,11 @@ pub trait ItemRepo: Send + Sync {
 #[async_trait]
 pub trait UserDataRepo: Send + Sync {
     async fn get_user_data(&self, user_id: &str, item_id: &str) -> DbResult<UserData>;
-    async fn get_user_data_resume(&self, user_id: &str, limit: Option<u32>) -> DbResult<Vec<UserData>>;
+    async fn get_user_data_resume(
+        &self,
+        user_id: &str,
+        limit: Option<u32>,
+    ) -> DbResult<Vec<UserData>>;
     async fn upsert_user_data(&self, data: &UserData) -> DbResult<()>;
     async fn get_favorites(&self, user_id: &str) -> DbResult<Vec<String>>;
     async fn get_recently_watched(&self, user_id: &str, limit: i32) -> DbResult<Vec<String>>;
@@ -42,9 +46,16 @@ pub trait PlaylistRepo: Send + Sync {
     async fn add_item_to_playlist(&self, playlist_id: &str, item_id: &str) -> DbResult<()>;
     async fn remove_item_from_playlist(&self, playlist_id: &str, item_id: &str) -> DbResult<()>;
     async fn get_playlist_items(&self, playlist_id: &str) -> DbResult<Vec<String>>;
-    async fn move_item_in_playlist(&self, playlist_id: &str, item_id: &str, new_index: i32) -> DbResult<()>;
+    async fn move_item_in_playlist(
+        &self,
+        playlist_id: &str,
+        item_id: &str,
+        new_index: i32,
+    ) -> DbResult<()>;
 }
 
-pub trait Repository: UserRepo + AccessTokenRepo + ItemRepo + UserDataRepo + PlaylistRepo + Send + Sync {
+pub trait Repository:
+    UserRepo + AccessTokenRepo + ItemRepo + UserDataRepo + PlaylistRepo + Send + Sync
+{
     fn close(&self);
 }

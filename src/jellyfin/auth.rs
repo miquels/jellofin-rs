@@ -11,10 +11,10 @@ use axum::{
 };
 use bcrypt;
 
-use crate::db::{AccessToken, User, UserRepo, AccessTokenRepo};
-use crate::server::AppState;
-use crate::util::{QueryParams, generate_id};
 use super::types::*;
+use crate::db::{AccessToken, AccessTokenRepo, User, UserRepo};
+use crate::server::AppState;
+use crate::util::{generate_id, QueryParams};
 
 pub async fn authenticate_by_name(
     State(state): State<AppState>,
@@ -35,19 +35,22 @@ pub async fn authenticate_by_name(
                 return Err(StatusCode::UNAUTHORIZED);
             }
             user
-        },
+        }
         Err(_) => {
             if state.config.jellyfin.autoregister {
                 let new_user = User {
                     id: generate_id(&username),
                     username: username.to_string(),
                     password: bcrypt::hash(&req.pw, bcrypt::DEFAULT_COST)
-                                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
+                        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?,
                     created: Some(now_text.clone()),
                     lastlogin: None,
                     lastused: None,
                 };
-                state.db.upsert_user(&new_user).await
+                state
+                    .db
+                    .upsert_user(&new_user)
+                    .await
                     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
                 new_user
             } else {
@@ -55,7 +58,7 @@ pub async fn authenticate_by_name(
             }
         }
     };
-    
+
     let token = AccessToken {
         token: uuid::Uuid::new_v4().to_string(),
         userid: user.id.clone(),
@@ -67,13 +70,21 @@ pub async fn authenticate_by_name(
         created: Some(now),
         lastused: Some(now),
     };
-    
-    state.db.upsert_token(&token).await
+
+    state
+        .db
+        .upsert_token(&token)
+        .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     let session_id = "e3a869b7a901f8894de8ee65688db6c0"; // Hardcoded session ID matching Go implementation
-    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_else(|| "jellyfin-rs".to_string());
-    
+    let server_id = state
+        .config
+        .jellyfin
+        .server_id
+        .clone()
+        .unwrap_or_else(|| "jellyfin-rs".to_string());
+
     let result = AuthenticationResult {
         user: UserDto {
             name: user.username.clone(),
@@ -185,7 +196,7 @@ pub async fn authenticate_by_name(
         access_token: token.token.clone(),
         server_id,
     };
-    
+
     Ok(Json(result))
 }
 
@@ -196,13 +207,13 @@ pub async fn auth_middleware(
     next: Next,
 ) -> Result<Response, StatusCode> {
     let token = extract_token(&req, &params);
-    
+
     if let Some(token_str) = token {
         if let Ok(token) = state.db.get_token(&token_str).await {
             req.extensions_mut().insert(token.userid.clone());
         }
     }
-    
+
     Ok(next.run(req).await)
 }
 
@@ -214,7 +225,7 @@ fn extract_token<B>(req: &Request<B>, params: &QueryParams) -> Option<String> {
             }
         }
     }
-    
+
     if let Some(auth_header) = req.headers().get("X-Emby-Authorization") {
         if let Ok(auth_str) = auth_header.to_str() {
             if let Some(token) = parse_emby_auth(auth_str) {
@@ -222,23 +233,29 @@ fn extract_token<B>(req: &Request<B>, params: &QueryParams) -> Option<String> {
             }
         }
     }
-    
-    if let Some(token) = req.headers().get("X-Emby-Token")
+
+    if let Some(token) = req
+        .headers()
+        .get("X-Emby-Token")
         .and_then(|h| h.to_str().ok())
-        .map(|s| s.to_string()) {
+        .map(|s| s.to_string())
+    {
         return Some(token);
     }
-    
-    if let Some(token) = req.headers().get("X-MediaBrowser-Token")
+
+    if let Some(token) = req
+        .headers()
+        .get("X-MediaBrowser-Token")
         .and_then(|h| h.to_str().ok())
-        .map(|s| s.to_string()) {
+        .map(|s| s.to_string())
+    {
         return Some(token);
     }
-    
+
     if let Some(token) = params.get("ApiKey").or_else(|| params.get("api_key")) {
         return Some(token.to_string());
     }
-    
+
     None
 }
 
@@ -258,27 +275,19 @@ pub fn get_user_id<B>(req: &Request<B>) -> Option<String> {
 
 use axum::response::IntoResponse;
 
-pub async fn quick_connect_enabled(
-    State(_state): State<AppState>,
-) -> Json<bool> {
+pub async fn quick_connect_enabled(State(_state): State<AppState>) -> Json<bool> {
     // Stub: Quick Connect not yet fully implemented
     Json(false)
 }
 
-pub async fn quick_connect_initiate(
-    State(_state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn quick_connect_initiate(State(_state): State<AppState>) -> impl IntoResponse {
     StatusCode::NOT_IMPLEMENTED.into_response()
 }
 
-pub async fn quick_connect_authorize(
-    State(_state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn quick_connect_authorize(State(_state): State<AppState>) -> impl IntoResponse {
     StatusCode::NOT_IMPLEMENTED.into_response()
 }
 
-pub async fn quick_connect_connect(
-    State(_state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn quick_connect_connect(State(_state): State<AppState>) -> impl IntoResponse {
     StatusCode::NOT_IMPLEMENTED.into_response()
 }

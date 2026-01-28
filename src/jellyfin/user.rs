@@ -7,15 +7,15 @@ use axum::{
     Json,
 };
 
+use super::auth::get_user_id;
+use super::types::*;
 use crate::db::UserRepo;
 use crate::jellyfin::userdata::get_default_user_data;
 use crate::server::AppState;
-use super::auth::get_user_id;
-use super::types::*;
 
 fn create_user_dto(user_id: String, username: String, server_id: String) -> UserDto {
     let now = chrono::Utc::now().to_rfc3339();
-    
+
     UserDto {
         name: username,
         server_id,
@@ -92,13 +92,18 @@ fn create_user_dto(user_id: String, username: String, server_id: String) -> User
 
 pub async fn get_users(State(state): State<AppState>) -> Result<Json<Vec<UserDto>>, StatusCode> {
     let users: Vec<crate::db::User> = vec![];
-    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_else(|| "jellyfin-rs".to_string());
-    
+    let server_id = state
+        .config
+        .jellyfin
+        .server_id
+        .clone()
+        .unwrap_or_else(|| "jellyfin-rs".to_string());
+
     let user_dtos: Vec<UserDto> = users
         .into_iter()
         .map(|u| create_user_dto(u.id, u.username, server_id.clone()))
         .collect();
-    
+
     Ok(Json(user_dtos))
 }
 
@@ -107,11 +112,19 @@ pub async fn get_current_user<B>(
     req: Request<B>,
 ) -> Result<Json<UserDto>, StatusCode> {
     let user_id = get_user_id(&req).ok_or(StatusCode::UNAUTHORIZED)?;
-    
-    let user = state.db.get_user_by_id(&user_id).await
+
+    let user = state
+        .db
+        .get_user_by_id(&user_id)
+        .await
         .map_err(|_| StatusCode::NOT_FOUND)?;
-    
-    let server_id = state.config.jellyfin.server_id.clone().unwrap_or_else(|| "jellyfin-rs".to_string());
+
+    let server_id = state
+        .config
+        .jellyfin
+        .server_id
+        .clone()
+        .unwrap_or_else(|| "jellyfin-rs".to_string());
     Ok(Json(create_user_dto(user.id, user.username, server_id)))
 }
 
@@ -126,7 +139,7 @@ pub async fn get_user_image(
 
 pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<BaseItemDto>> {
     let collections = state.collections.list_collections().await;
-    
+
     let mut items: Vec<BaseItemDto> = collections
         .iter()
         .map(|c| {
@@ -135,7 +148,7 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
                 "shows" => "tvshows",
                 other => other,
             };
-            
+
             BaseItemDto {
                 name: c.name.clone(),
                 id: c.id.clone(),
@@ -195,7 +208,7 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
             }
         })
         .collect();
-    
+
     // Add Favorites virtual collection
     items.push(BaseItemDto {
         name: "Favorites".to_string(),
@@ -238,7 +251,9 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         path: None,
         etag: None,
         date_created: None,
-        user_data: Some(get_default_user_data("collectionfavorites_f4a0b1c2d3e5c4b8a9e6f7d8e9a0b1c2")),
+        user_data: Some(get_default_user_data(
+            "collectionfavorites_f4a0b1c2d3e5c4b8a9e6f7d8e9a0b1c2",
+        )),
         media_sources: None,
         provider_ids: None,
         recursive_item_count: None,
@@ -254,7 +269,7 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         play_access: Some("Full".to_string()),
         enable_media_source_display: Some(false),
     });
-    
+
     // Add Playlists virtual collection
     items.push(BaseItemDto {
         name: "Playlists".to_string(),
@@ -297,7 +312,9 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         path: None,
         etag: None,
         date_created: None,
-        user_data: Some(get_default_user_data("collectionplaylist_2f0340563593c4d98b97c9bfa21ce23c")),
+        user_data: Some(get_default_user_data(
+            "collectionplaylist_2f0340563593c4d98b97c9bfa21ce23c",
+        )),
         media_sources: None,
         provider_ids: None,
         recursive_item_count: None,
@@ -313,25 +330,25 @@ pub async fn get_user_views(State(state): State<AppState>) -> Json<QueryResult<B
         play_access: Some("Full".to_string()),
         enable_media_source_display: Some(false),
     });
-    
+
     Json(QueryResult {
         items,
         total_record_count: collections.len(),
     })
 }
 
-pub async fn get_grouping_options(
-    State(state): State<AppState>,
-) -> Json<Vec<serde_json::Value>> {
+pub async fn get_grouping_options(State(state): State<AppState>) -> Json<Vec<serde_json::Value>> {
     // Return list of collections as grouping options, similar to Go's behavior
     let collections = state.collections.list_collections().await;
-    let options: Vec<serde_json::Value> = collections.iter().map(|c| {
-        serde_json::json!({
-            "Id": c.id,
-            "Name": c.name
+    let options: Vec<serde_json::Value> = collections
+        .iter()
+        .map(|c| {
+            serde_json::json!({
+                "Id": c.id,
+                "Name": c.name
+            })
         })
-    }).collect();
-    
+        .collect();
+
     Json(options)
 }
-

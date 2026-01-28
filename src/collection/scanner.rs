@@ -7,11 +7,11 @@ use tracing::debug;
 #[cfg(unix)]
 use std::os::unix::fs::MetadataExt;
 
-use crate::util::generate_id;
 use super::collection::{Collection, CollectionType};
 use super::item::*;
 use super::nfo::parse_nfo_file;
 use super::parse_filename::{clean_title, parse_episode_from_filename};
+use crate::util::generate_id;
 
 const VIDEO_EXTENSIONS: &[&str] = &["mkv", "mp4", "avi", "m4v", "mov", "wmv", "flv", "webm"];
 const IMAGE_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp"];
@@ -45,7 +45,11 @@ fn scan_movies(collection: &mut Collection) -> Result<(), ScanError> {
         }
     }
 
-    debug!("Scanned {} movies in collection {}", collection.movies.len(), collection.name);
+    debug!(
+        "Scanned {} movies in collection {}",
+        collection.movies.len(),
+        collection.name
+    );
     Ok(())
 }
 
@@ -134,7 +138,7 @@ fn scan_movie_dir(dir: &Path, collection_id: &str) -> Option<Movie> {
     let mut earliest_time = Utc::now();
     let mut latest_time = Utc::now();
     let mut first = true;
-    
+
     for video_file in video_files {
         if let Ok(metadata) = fs::metadata(&video_file) {
             // Track earliest and latest file ctimes
@@ -151,7 +155,7 @@ fn scan_movie_dir(dir: &Path, collection_id: &str) -> Option<Movie> {
                     latest_time = file_time;
                 }
             }
-            
+
             let subtitles = find_subtitles(&video_file);
             movie.media_sources.push(MediaSource {
                 path: video_file.clone(),
@@ -162,7 +166,7 @@ fn scan_movie_dir(dir: &Path, collection_id: &str) -> Option<Movie> {
             });
         }
     }
-    
+
     movie.date_created = earliest_time;
     movie.date_modified = latest_time;
 
@@ -190,7 +194,11 @@ fn scan_shows(collection: &mut Collection) -> Result<(), ScanError> {
         }
     }
 
-    debug!("Scanned {} shows in collection {}", collection.shows.len(), collection.name);
+    debug!(
+        "Scanned {} shows in collection {}",
+        collection.shows.len(),
+        collection.name
+    );
     Ok(())
 }
 
@@ -205,11 +213,13 @@ fn scan_show_dir(dir: &Path, collection_id: &str) -> Option<Show> {
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            
+
             if path.is_dir() {
                 let dirname = path.file_name()?.to_str()?;
                 if let Some(season_num) = parse_season_number(dirname) {
-                    if let Some(season) = scan_season_dir(&path, &show_id, collection_id, season_num) {
+                    if let Some(season) =
+                        scan_season_dir(&path, &show_id, collection_id, season_num)
+                    {
                         seasons.insert(season_num, season);
                     }
                 }
@@ -283,7 +293,12 @@ fn scan_show_dir(dir: &Path, collection_id: &str) -> Option<Show> {
     Some(show)
 }
 
-fn scan_season_dir(dir: &Path, show_id: &str, collection_id: &str, season_num: i32) -> Option<Season> {
+fn scan_season_dir(
+    dir: &Path,
+    show_id: &str,
+    collection_id: &str,
+    season_num: i32,
+) -> Option<Season> {
     let season_id = format!("{}:S{:02}", show_id, season_num);
     let season_name = if season_num == 0 {
         "Specials".to_string()
@@ -297,7 +312,7 @@ fn scan_season_dir(dir: &Path, show_id: &str, collection_id: &str, season_num: i
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            
+
             if path.is_file() {
                 let filename = path.file_name()?.to_str()?;
                 let extension = path.extension()?.to_str()?.to_lowercase();
@@ -318,8 +333,12 @@ fn scan_season_dir(dir: &Path, show_id: &str, collection_id: &str, season_num: i
                         }
                     }
                 } else if IMAGE_EXTENSIONS.contains(&extension.as_str()) {
-                    if filename.to_lowercase().contains(&format!("season{:02}", season_num))
-                        || filename.to_lowercase().contains(&format!("season-{:02}", season_num))
+                    if filename
+                        .to_lowercase()
+                        .contains(&format!("season{:02}", season_num))
+                        || filename
+                            .to_lowercase()
+                            .contains(&format!("season-{:02}", season_num))
                     {
                         assign_image(&mut images, filename, path.clone());
                     }
@@ -384,7 +403,7 @@ fn create_episode(
     let subtitles = find_subtitles(path);
     let metadata = fs::metadata(path).ok()?;
     let size = metadata.len();
-    
+
     // Use file ctime for timestamps (matching Go server behavior)
     let file_time = get_file_ctime(&metadata);
 
@@ -416,25 +435,28 @@ fn create_episode(
 
 fn parse_season_number(dirname: &str) -> Option<i32> {
     let lower = dirname.to_lowercase();
-    
+
     if lower == "specials" || lower == "season 0" || lower == "s0" {
         return Some(0);
     }
-    
-    if let Some(stripped) = lower.strip_prefix("season ").or_else(|| lower.strip_prefix("season")) {
+
+    if let Some(stripped) = lower
+        .strip_prefix("season ")
+        .or_else(|| lower.strip_prefix("season"))
+    {
         return stripped.trim().parse::<i32>().ok();
     }
-    
+
     if let Some(stripped) = lower.strip_prefix('s') {
         return stripped.parse::<i32>().ok();
     }
-    
+
     None
 }
 
 fn assign_image(images: &mut ImageInfo, filename: &str, path: PathBuf) {
     let lower = filename.to_lowercase();
-    
+
     if lower.contains("poster") {
         images.primary = Some(path);
     } else if lower.contains("fanart") || lower.contains("backdrop") {
@@ -454,12 +476,12 @@ fn assign_image(images: &mut ImageInfo, filename: &str, path: PathBuf) {
 /// Looks for images that match the video file's base name (e.g., "Show.S01E01-thumb.jpg" for "Show.S01E01.mkv")
 fn find_episode_images(video_path: &Path) -> ImageInfo {
     let mut images = ImageInfo::default();
-    
+
     let video_stem = match video_path.file_stem().and_then(|s| s.to_str()) {
         Some(s) => s,
         None => return images,
     };
-    
+
     let parent = match video_path.parent() {
         Some(p) => p,
         None => return images,
@@ -475,7 +497,10 @@ fn find_episode_images(video_path: &Path) -> ImageInfo {
                 if IMAGE_EXTENSIONS.contains(&ext.to_lowercase().as_str()) {
                     if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
                         // Match images that start with the video filename (exact match or with suffix like -thumb)
-                        if stem == video_stem || stem.starts_with(&format!("{}-", video_stem)) || stem.starts_with(&format!("{}.", video_stem)) {
+                        if stem == video_stem
+                            || stem.starts_with(&format!("{}-", video_stem))
+                            || stem.starts_with(&format!("{}.", video_stem))
+                        {
                             assign_image(&mut images, stem, path.clone());
                         }
                     }
@@ -489,12 +514,12 @@ fn find_episode_images(video_path: &Path) -> ImageInfo {
 
 fn find_subtitles(video_path: &Path) -> Vec<SubtitleStream> {
     let mut subtitles = Vec::new();
-    
+
     let video_stem = match video_path.file_stem().and_then(|s| s.to_str()) {
         Some(s) => s,
         None => return subtitles,
     };
-    
+
     let parent = match video_path.parent() {
         Some(p) => p,
         None => return subtitles,
@@ -545,14 +570,14 @@ fn extract_language_from_filename(filename: &str) -> Option<String> {
 fn get_file_ctime(metadata: &std::fs::Metadata) -> DateTime<Utc> {
     let ctime_secs = metadata.ctime();
     let ctime_nsecs = metadata.ctime_nsec();
-    DateTime::from_timestamp(ctime_secs, ctime_nsecs as u32)
-        .unwrap_or_else(Utc::now)
+    DateTime::from_timestamp(ctime_secs, ctime_nsecs as u32).unwrap_or_else(Utc::now)
 }
 
 #[cfg(not(unix))]
 fn get_file_ctime(metadata: &std::fs::Metadata) -> DateTime<Utc> {
     // Fallback for non-Unix systems
-    metadata.modified()
+    metadata
+        .modified()
         .ok()
         .and_then(|t| DateTime::<Utc>::from(t).into())
         .unwrap_or_else(Utc::now)

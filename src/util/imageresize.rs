@@ -67,12 +67,8 @@ impl ImageResizer {
 
         let (orig_width, orig_height) = img.dimensions();
 
-        let (target_width, target_height) = self.calculate_dimensions(
-            orig_width,
-            orig_height,
-            width,
-            height,
-        );
+        let (target_width, target_height) =
+            self.calculate_dimensions(orig_width, orig_height, width, height);
 
         let resized = if target_width == orig_width && target_height == orig_height {
             img
@@ -129,7 +125,6 @@ impl ImageResizer {
         }
     }
 
-
     fn encode_image(
         &self,
         img: DynamicImage,
@@ -141,7 +136,8 @@ impl ImageResizer {
         match format {
             ImageFormat::Jpeg => {
                 let quality = quality.unwrap_or(90).clamp(1, 100);
-                let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, quality as u8);
+                let encoder =
+                    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, quality as u8);
                 img.write_with_encoder(encoder)?;
             }
             _ => {
