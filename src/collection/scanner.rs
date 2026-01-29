@@ -218,7 +218,7 @@ fn scan_show_dir(dir: &Path, collection_id: &str) -> Option<Show> {
                 let dirname = path.file_name()?.to_str()?;
                 if let Some(season_num) = parse_season_number(dirname) {
                     if let Some(season) =
-                        scan_season_dir(&path, &show_id, collection_id, season_num)
+                        scan_season_dir(&path, &show_id, &show_name, collection_id, season_num)
                     {
                         seasons.insert(season_num, season);
                     }
@@ -296,15 +296,16 @@ fn scan_show_dir(dir: &Path, collection_id: &str) -> Option<Show> {
 fn scan_season_dir(
     dir: &Path,
     show_id: &str,
+    show_name: &str,
     collection_id: &str,
     season_num: i32,
 ) -> Option<Season> {
-    let season_id = format!("{}:S{:02}", show_id, season_num);
     let season_name = if season_num == 0 {
         "Specials".to_string()
     } else {
         format!("Season {}", season_num)
     };
+    let season_id = generate_id(&format!("{}-season-{}", show_name, season_num));
 
     let mut images = ImageInfo::default();
     let mut episodes = HashMap::new();
@@ -372,7 +373,10 @@ fn create_episode(
     episode_num: i32,
 ) -> Option<Episode> {
     let filename = path.file_name()?.to_str()?;
-    let episode_id = format!("{}:E{:02}", season_id, episode_num);
+    // FIXME: Go compat: is this a good idea, using the episode filename to create the id ?
+    // let basename = path.file_stem()?.to_str()?;
+    // let episode_id = generate_id(basename);
+    let episode_id = format!("{}:S{02}E{:02}", show_id, season_num, episode_num);
     let episode_name = clean_title(filename);
 
     let nfo_path = path.with_extension("nfo");
