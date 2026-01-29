@@ -128,7 +128,7 @@ pub enum PersonType {
     Producer,
 }
 
-pub trait Item {
+pub trait ItemTrait {
     fn id(&self) -> &str;
     fn name(&self) -> &str;
     fn collection_id(&self) -> &str;
@@ -162,158 +162,136 @@ impl ItemType {
     }
 }
 
-impl Item for Movie {
-    fn id(&self) -> &str {
-        &self.id
-    }
-    fn name(&self) -> &str {
-        &self.name
-    }
-    fn collection_id(&self) -> &str {
-        &self.collection_id
-    }
-    fn item_type(&self) -> ItemType {
-        ItemType::Movie
-    }
-    fn parent_id(&self) -> Option<&str> {
-        None
-    }
-    fn sort_name(&self) -> &str {
-        self.sort_name.as_deref().unwrap_or(&self.name)
-    }
-    fn premiere_date(&self) -> Option<DateTime<Utc>> {
-        self.premiere_date
-    }
-    fn production_year(&self) -> Option<i32> {
-        self.production_year
-    }
-    fn community_rating(&self) -> Option<f64> {
-        self.community_rating
-    }
-    fn overview(&self) -> Option<&str> {
-        self.overview.as_deref()
-    }
-    fn genres(&self) -> &[String] {
-        &self.genres
-    }
-    fn images(&self) -> &ImageInfo {
-        &self.images
+
+#[derive(Debug, Clone)]
+pub enum Item {
+    Movie(crate::collection::Movie),
+    Show(crate::collection::Show),
+    Season(crate::collection::Season),
+    Episode(crate::collection::Episode),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ItemRef<'a> {
+    Movie(&'a Movie),
+    Show(&'a Show),
+    Season(&'a Season),
+    Episode(&'a Episode),
+}
+
+macro_rules! impl_item_trait {
+    ($name: ident, $type: ty) => {
+        impl ItemTrait for $type {
+            fn id(&self) -> &str {
+                match self {
+                    $name::Movie(m) => &m.id,
+                    $name::Show(s) => &s.id,
+                    $name::Season(s) => &s.id,
+                    $name::Episode(e) => &e.id,
+                }
+            }
+
+            fn name(&self) -> &str {
+                match self {
+                    $name::Movie(m) => &m.name,
+                    $name::Show(s) => &s.name,
+                    $name::Season(s) => &s.name,
+                    $name::Episode(e) => &e.name,
+                }
+            }
+
+            fn collection_id(&self) -> &str {
+                match self {
+                    $name::Movie(m) => &m.collection_id,
+                    $name::Show(s) => &s.collection_id,
+                    $name::Season(s) => &s.collection_id,
+                    $name::Episode(e) => &e.collection_id,
+                }
+            }
+
+            fn item_type(&self) -> ItemType {
+                match self {
+                    $name::Movie(_) => ItemType::Movie,
+                    $name::Show(_) => ItemType::Series,
+                    $name::Season(_) => ItemType::Season,
+                    $name::Episode(_) => ItemType::Episode,
+                }
+            }
+
+            fn parent_id(&self) -> Option<&str> {
+                match self {
+                    $name::Movie(_) => None,
+                    $name::Show(_) => None,
+                    $name::Season(s) => Some(&s.show_id),
+                    $name::Episode(e) => Some(&e.season_id),
+                }
+            }
+
+            fn sort_name(&self) -> &str {
+                match self {
+                    $name::Movie(m) => m.sort_name.as_deref().unwrap_or(&m.name),
+                    $name::Show(s) => s.sort_name.as_deref().unwrap_or(&s.name),
+                    $name::Season(s) => &s.name,
+                    $name::Episode(e) => &e.name,
+                }
+            }
+
+            fn premiere_date(&self) -> Option<DateTime<Utc>> {
+                match self {
+                    $name::Movie(m) => m.premiere_date,
+                    $name::Show(s) => s.premiere_date,
+                    $name::Season(s) => s.premiere_date,
+                    $name::Episode(e) => e.premiere_date,
+                }
+            }
+
+            fn production_year(&self) -> Option<i32> {
+                match self {
+                    $name::Movie(m) => m.production_year,
+                    $name::Show(s) => s.production_year,
+                    $name::Season(_) => None,
+                    $name::Episode(_) => None,
+                }
+            }
+
+            fn community_rating(&self) -> Option<f64> {
+                match self {
+                    $name::Movie(m) => m.community_rating,
+                    $name::Show(s) => s.community_rating,
+                    $name::Season(_) => None,
+                    $name::Episode(e) => e.community_rating,
+                }
+            }
+
+            fn overview(&self) -> Option<&str> {
+                match self {
+                    $name::Movie(m) => m.overview.as_deref(),
+                    $name::Show(s) => s.overview.as_deref(),
+                    $name::Season(s) => s.overview.as_deref(),
+                    $name::Episode(e) => e.overview.as_deref(),
+                }
+            }
+
+            fn genres(&self) -> &[String] {
+                match self {
+                    $name::Movie(m) => &m.genres,
+                    $name::Show(s) => &s.genres,
+                    $name::Season(_) => &[],
+                    $name::Episode(_) => &[],
+                }
+            }
+
+            fn images(&self) -> &ImageInfo {
+                match self {
+                    $name::Movie(m) => &m.images,
+                    $name::Show(s) => &s.images,
+                    $name::Season(s) => &s.images,
+                    $name::Episode(e) => &e.images,
+                }
+            }
+        }
     }
 }
 
-impl Item for Show {
-    fn id(&self) -> &str {
-        &self.id
-    }
-    fn name(&self) -> &str {
-        &self.name
-    }
-    fn collection_id(&self) -> &str {
-        &self.collection_id
-    }
-    fn item_type(&self) -> ItemType {
-        ItemType::Series
-    }
-    fn parent_id(&self) -> Option<&str> {
-        None
-    }
-    fn sort_name(&self) -> &str {
-        self.sort_name.as_deref().unwrap_or(&self.name)
-    }
-    fn premiere_date(&self) -> Option<DateTime<Utc>> {
-        self.premiere_date
-    }
-    fn production_year(&self) -> Option<i32> {
-        self.production_year
-    }
-    fn community_rating(&self) -> Option<f64> {
-        self.community_rating
-    }
-    fn overview(&self) -> Option<&str> {
-        self.overview.as_deref()
-    }
-    fn genres(&self) -> &[String] {
-        &self.genres
-    }
-    fn images(&self) -> &ImageInfo {
-        &self.images
-    }
-}
-
-impl Item for Season {
-    fn id(&self) -> &str {
-        &self.id
-    }
-    fn name(&self) -> &str {
-        &self.name
-    }
-    fn collection_id(&self) -> &str {
-        &self.collection_id
-    }
-    fn item_type(&self) -> ItemType {
-        ItemType::Season
-    }
-    fn parent_id(&self) -> Option<&str> {
-        Some(&self.show_id)
-    }
-    fn sort_name(&self) -> &str {
-        &self.name
-    }
-    fn premiere_date(&self) -> Option<DateTime<Utc>> {
-        self.premiere_date
-    }
-    fn production_year(&self) -> Option<i32> {
-        None
-    }
-    fn community_rating(&self) -> Option<f64> {
-        None
-    }
-    fn overview(&self) -> Option<&str> {
-        self.overview.as_deref()
-    }
-    fn genres(&self) -> &[String] {
-        &[]
-    }
-    fn images(&self) -> &ImageInfo {
-        &self.images
-    }
-}
-
-impl Item for Episode {
-    fn id(&self) -> &str {
-        &self.id
-    }
-    fn name(&self) -> &str {
-        &self.name
-    }
-    fn collection_id(&self) -> &str {
-        &self.collection_id
-    }
-    fn item_type(&self) -> ItemType {
-        ItemType::Episode
-    }
-    fn parent_id(&self) -> Option<&str> {
-        Some(&self.season_id)
-    }
-    fn sort_name(&self) -> &str {
-        &self.name
-    }
-    fn premiere_date(&self) -> Option<DateTime<Utc>> {
-        self.premiere_date
-    }
-    fn production_year(&self) -> Option<i32> {
-        None
-    }
-    fn community_rating(&self) -> Option<f64> {
-        self.community_rating
-    }
-    fn overview(&self) -> Option<&str> {
-        self.overview.as_deref()
-    }
-    fn genres(&self) -> &[String] {
-        &[]
-    }
-    fn images(&self) -> &ImageInfo {
-        &self.images
-    }
-}
+impl_item_trait!(Item, Item);
+impl_item_trait!(ItemRef, ItemRef<'_>);

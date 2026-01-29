@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use tower::ServiceExt;
 use tower_http::services::ServeFile;
 
+use crate::collection::Item;
 use crate::server::AppState;
 
 pub async fn stream_video_with_range(
@@ -45,13 +46,11 @@ pub async fn stream_subtitle(
     Ok(([(header::CONTENT_TYPE, content_type)], content).into_response())
 }
 
-use crate::collection::repo::FoundItem;
-
 async fn find_video_file(state: &AppState, item_id: &str) -> Result<(PathBuf, u64), StatusCode> {
     if let Some((_, item)) = state.collections.get_item(item_id) {
         let media_sources = match item {
-            FoundItem::Movie(m) => m.media_sources,
-            FoundItem::Episode(e) => e.media_sources,
+            Item::Movie(m) => m.media_sources,
+            Item::Episode(e) => e.media_sources,
             _ => return Err(StatusCode::NOT_FOUND),
         };
 
@@ -73,8 +72,8 @@ async fn find_subtitle_file(
 ) -> Result<PathBuf, StatusCode> {
     if let Some((_, item)) = state.collections.get_item(item_id) {
         let media_sources = match item {
-            FoundItem::Movie(m) => m.media_sources,
-            FoundItem::Episode(e) => e.media_sources,
+            Item::Movie(m) => m.media_sources,
+            Item::Episode(e) => e.media_sources,
             _ => return Err(StatusCode::NOT_FOUND),
         };
 

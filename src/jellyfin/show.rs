@@ -6,6 +6,7 @@ use axum::{
 
 use super::auth::get_user_id;
 use super::types::*;
+use crate::collection::Item;
 use crate::db::UserDataRepo;
 use crate::jellyfin::jfitem::convert_episode_to_dto;
 use crate::jellyfin::jfitem::convert_season_to_dto;
@@ -288,7 +289,7 @@ pub async fn get_next_up(
     if let Some(sid) = series_id {
         // Direct lookup
         if let Some((collection_id, item)) = state.collections.get_item(sid) {
-            if let crate::collection::repo::FoundItem::Show(show) = item {
+            if let Item::Show(show) = item {
                 if let Some(collection) = state.collections.get_collection(&collection_id).await {
                     if let Some((_, dto)) =
                         find_next_up_for_show(&state, &user_id, &show, &collection, server_id, true)

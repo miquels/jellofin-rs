@@ -8,10 +8,10 @@ pub mod scanner;
 pub mod search;
 pub mod sort_name;
 
-pub use collection::{Collection, CollectionType, ItemRef};
+pub use collection::{Collection, CollectionType};
 pub use image::find_image_path;
 pub use item::{
-    Episode, ImageInfo, Item, ItemType, MediaSource, Movie, Person, PersonType, Season, Show,
+    Episode, ImageInfo, Item, ItemRef, ItemType, MediaSource, Movie, Person, PersonType, Season, Show,
     SubtitleStream,
 };
 pub use repo::{CollectionRepo, CollectionRepoError};

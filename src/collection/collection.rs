@@ -115,22 +115,3 @@ impl Collection {
         }
     }
 }
-
-#[derive(Debug, Clone, Copy)]
-pub enum ItemRef<'a> {
-    Movie(&'a Movie),
-    Show(&'a Show),
-    Season(&'a Season),
-    Episode(&'a Episode),
-}
-
-impl<'a> ItemRef<'a> {
-    pub fn as_item(&self) -> &'a dyn Item {
-        match self {
-            ItemRef::Movie(m) => *m as &dyn Item,
-            ItemRef::Show(s) => *s as &dyn Item,
-            ItemRef::Season(_) => panic!("Season does not implement Item trait"),
-            ItemRef::Episode(e) => *e as &dyn Item,
-        }
-    }
-}

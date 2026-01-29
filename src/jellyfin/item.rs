@@ -16,9 +16,9 @@ use super::jfitem::{
 use super::pagination::apply_pagination;
 use super::sort::apply_item_sorting;
 use super::types::*;
-use crate::collection::collection::ItemRef;
+use crate::collection::ItemRef;
 use crate::collection::find_image_path;
-use crate::collection::repo::FoundItem;
+use crate::collection::Item;
 use crate::db::UserDataRepo;
 use crate::server::AppState;
 use crate::util::QueryParams;
@@ -49,7 +49,7 @@ pub async fn get_item_ancestors(
 
     // 3. Build ancestor chain based on item type
     match found_item {
-        FoundItem::Episode(episode) => {
+        Item::Episode(episode) => {
             // Episode -> Season -> Series -> Collection
             // Get Season
             if let Some(ItemRef::Season(season)) = collection.get_item(&episode.season_id) {
@@ -66,17 +66,17 @@ pub async fn get_item_ancestors(
                 }
             }
         }
-        FoundItem::Season(season) => {
+        Item::Season(season) => {
             // Season -> Series -> Collection
             if let Some(ItemRef::Show(show)) = collection.get_item(&season.show_id) {
                 ancestors.push(convert_show_to_dto(show, &collection.id, server_id));
             }
         }
-        FoundItem::Show(_show) => {
+        Item::Show(_show) => {
             // Series -> Collection
             // Nothing extra to add before collection
         }
-        FoundItem::Movie(_movie) => {
+        Item::Movie(_movie) => {
             // Movie -> Collection
             // Nothing extra to add before collection
         }
@@ -390,11 +390,11 @@ async fn fetch_item_by_id(
 
     if let Some((collection_id, item)) = state.collections.get_item(item_id) {
         let mut dto = match item {
-            FoundItem::Movie(movie) => convert_movie_to_dto(&movie, &collection_id, &server_id),
-            FoundItem::Show(show) => convert_show_to_dto(&show, &collection_id, &server_id),
-            FoundItem::Season(season) => {
+            Item::Movie(movie) => convert_movie_to_dto(&movie, &collection_id, &server_id),
+            Item::Show(show) => convert_show_to_dto(&show, &collection_id, &server_id),
+            Item::Season(season) => {
                 // We need show name
-                let show_name = if let Some((_, FoundItem::Show(show))) =
+                let show_name = if let Some((_, Item::Show(show))) =
                     state.collections.get_item(&season.show_id)
                 {
                     show.name
@@ -409,9 +409,9 @@ async fn fetch_item_by_id(
                     &server_id,
                 )
             }
-            FoundItem::Episode(episode) => {
+            Item::Episode(episode) => {
                 // We need show name and season name
-                let show_name = if let Some((_, FoundItem::Show(show))) =
+                let show_name = if let Some((_, Item::Show(show))) =
                     state.collections.get_item(&episode.show_id)
                 {
                     show.name
@@ -419,7 +419,7 @@ async fn fetch_item_by_id(
                     String::new()
                 };
 
-                let season_name = if let Some((_, FoundItem::Season(season))) =
+                let season_name = if let Some((_, Item::Season(season))) =
                     state.collections.get_item(&episode.season_id)
                 {
                     season.name

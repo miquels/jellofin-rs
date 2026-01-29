@@ -7,8 +7,7 @@ use axum::{
 use super::auth::get_user_id;
 use super::jfitem::{convert_episode_to_dto, convert_movie_to_dto};
 use super::types::*;
-use crate::collection::collection::ItemRef;
-use crate::collection::repo::FoundItem;
+use crate::collection::{Item, ItemRef};
 use crate::db::UserDataRepo;
 use crate::server::AppState;
 use crate::util::QueryParams;
@@ -44,7 +43,7 @@ pub async fn get_resume_items(
             if let Some((collection_id, found_item)) = state.collections.get_item(&data.itemid) {
                 if let Some(collection) = state.collections.get_collection(&collection_id).await {
                     match found_item {
-                        FoundItem::Movie(movie) => {
+                        Item::Movie(movie) => {
                             let mut dto = convert_movie_to_dto(&movie, &collection.id, server_id);
                             dto.user_data = Some(UserData {
                                 playback_position_ticks: data.position.unwrap_or(0),
@@ -61,7 +60,7 @@ pub async fn get_resume_items(
                             });
                             resume_items.push(dto);
                         }
-                        FoundItem::Episode(episode) => {
+                        Item::Episode(episode) => {
                             // Need to find parent season and show for full DTO
                             if let Some(ItemRef::Season(season)) =
                                 collection.get_item(&episode.season_id)

@@ -8,7 +8,7 @@ use tokio::sync::RwLock;
 use tracing::debug;
 
 use super::collection::Collection;
-use super::item::{Item, ItemType};
+use super::item::ItemType;
 
 pub struct SearchIndex {
     index: Index,
@@ -70,13 +70,13 @@ impl SearchIndex {
                 let mut doc = TantivyDocument::default();
                 doc.add_text(self.id_field, &movie.id);
                 doc.add_text(self.collection_id_field, &movie.collection_id);
-                doc.add_text(self.name_field, movie.name());
+                doc.add_text(self.name_field, &movie.name);
 
-                if let Some(overview) = movie.overview() {
+                if let Some(overview) = &movie.overview {
                     doc.add_text(self.overview_field, overview);
                 }
 
-                for genre in movie.genres() {
+                for genre in &movie.genres {
                     doc.add_text(self.genres_field, genre);
                 }
 
@@ -89,13 +89,13 @@ impl SearchIndex {
                 let mut doc = TantivyDocument::default();
                 doc.add_text(self.id_field, &show.id);
                 doc.add_text(self.collection_id_field, &show.collection_id);
-                doc.add_text(self.name_field, show.name());
+                doc.add_text(self.name_field, &show.name);
 
-                if let Some(overview) = show.overview() {
+                if let Some(overview) = &show.overview {
                     doc.add_text(self.overview_field, overview);
                 }
 
-                for genre in show.genres() {
+                for genre in &show.genres {
                     doc.add_text(self.genres_field, genre);
                 }
 
@@ -108,9 +108,9 @@ impl SearchIndex {
                         let mut doc = TantivyDocument::default();
                         doc.add_text(self.id_field, &episode.id);
                         doc.add_text(self.collection_id_field, &episode.collection_id);
-                        doc.add_text(self.name_field, episode.name());
+                        doc.add_text(self.name_field, &episode.name);
 
-                        if let Some(overview) = episode.overview() {
+                        if let Some(overview) = &episode.overview {
                             doc.add_text(self.overview_field, overview);
                         }
 
