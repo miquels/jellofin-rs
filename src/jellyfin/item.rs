@@ -1,4 +1,3 @@
-
 use axum::{
     extract::{Path, Query, State},
     http::{self, Request, StatusCode},
@@ -10,7 +9,10 @@ use tower_http::services::ServeFile;
 
 use super::auth::get_user_id;
 use super::filter::apply_items_filter;
-use super::jfitem::{convert_season_to_dto, convert_episode_to_dto, convert_movie_to_dto, convert_show_to_dto, convert_to_media_source_info};
+use super::jfitem::{
+    convert_episode_to_dto, convert_movie_to_dto, convert_season_to_dto, convert_show_to_dto,
+    convert_to_media_source_info,
+};
 use super::pagination::apply_pagination;
 use super::sort::apply_item_sorting;
 use super::types::*;
@@ -26,7 +28,12 @@ pub async fn get_item_ancestors(
     Path(item_id): Path<String>,
 ) -> Json<Vec<BaseItemDto>> {
     let mut ancestors = Vec::new();
-    let server_id = state.config.jellyfin.server_id.as_deref().unwrap_or_default();
+    let server_id = state
+        .config
+        .jellyfin
+        .server_id
+        .as_deref()
+        .unwrap_or_default();
 
     // 1. Find item and its collection
     let (collection_id, found_item) = match state.collections.get_item(&item_id) {
@@ -48,8 +55,14 @@ pub async fn get_item_ancestors(
             if let Some(ItemRef::Season(season)) = collection.get_item(&episode.season_id) {
                 // Get Show (needed for season DTO conversion)
                 if let Some(ItemRef::Show(show)) = collection.get_item(&episode.show_id) {
-                   ancestors.push(convert_season_to_dto(season, &show.id, &collection.id, &show.name, server_id));
-                   ancestors.push(convert_show_to_dto(show, &collection.id, server_id)); 
+                    ancestors.push(convert_season_to_dto(
+                        season,
+                        &show.id,
+                        &collection.id,
+                        &show.name,
+                        server_id,
+                    ));
+                    ancestors.push(convert_show_to_dto(show, &collection.id, server_id));
                 }
             }
         }
@@ -502,15 +515,12 @@ pub async fn get_latest_items(
 
     // Sort by premiere date descending (most recent releases first)
     all_items.sort_by(|a, b| b.0.cmp(&a.0));
-    
+
     // Apply filters before taking limit
-    let mut items: Vec<BaseItemDto> = all_items
-        .into_iter()
-        .map(|(_, dto)| dto)
-        .collect();
-    
+    let mut items: Vec<BaseItemDto> = all_items.into_iter().map(|(_, dto)| dto).collect();
+
     items = apply_items_filter(items, &params);
-    
+
     // Take limit after filtering
     items.truncate(limit);
 

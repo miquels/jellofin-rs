@@ -44,7 +44,7 @@ pub async fn get_seasons(
 
             return Ok(Json(QueryResult {
                 total_record_count: seasons_dto.len(),
-        start_index: 0,
+                start_index: 0,
                 items: seasons_dto,
             }));
         }
@@ -129,7 +129,7 @@ pub async fn get_episodes(
 
             return Ok(Json(QueryResult {
                 total_record_count: episodes.len(),
-        start_index: 0,
+                start_index: 0,
                 items: episodes,
             }));
         }

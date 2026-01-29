@@ -289,7 +289,6 @@ pub async fn update_playlist(
     Path(playlist_id): Path<String>,
     Json(req): Json<UpdatePlaylistRequest>,
 ) -> Result<StatusCode, StatusCode> {
-
     // Get existing playlist
     let playlist = state
         .db
@@ -308,7 +307,7 @@ pub async fn update_playlist(
     if let Some(name) = req.name {
         let mut updated_playlist = playlist;
         updated_playlist.name = name;
-        
+
         state
             .db
             .update_playlist(&updated_playlist)

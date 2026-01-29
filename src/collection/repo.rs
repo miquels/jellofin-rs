@@ -1,5 +1,5 @@
-use arc_swap::ArcSwap;
 use crate::collection::item::{ImageInfo, Item, ItemType};
+use arc_swap::ArcSwap;
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;

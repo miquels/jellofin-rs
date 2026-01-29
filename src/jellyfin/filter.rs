@@ -142,7 +142,7 @@ pub fn apply_item_filter(item: &BaseItemDto, params: &QueryParams) -> bool {
     // Hierarchy filtering - seriesId
     if let Some(series_id) = params.get("seriesId") {
         match &item.series_id {
-            Some(id) if id == series_id => {},
+            Some(id) if id == series_id => {}
             _ => return false,
         }
     }
@@ -150,7 +150,7 @@ pub fn apply_item_filter(item: &BaseItemDto, params: &QueryParams) -> bool {
     // Hierarchy filtering - seasonId
     if let Some(season_id) = params.get("seasonId") {
         match &item.season_id {
-            Some(id) if id == season_id => {},
+            Some(id) if id == season_id => {}
             _ => return false,
         }
     }

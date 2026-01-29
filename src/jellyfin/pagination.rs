@@ -17,11 +17,7 @@ pub fn apply_pagination(
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(100);
 
-    let paginated = items
-        .into_iter()
-        .skip(start_index)
-        .take(limit)
-        .collect();
+    let paginated = items.into_iter().skip(start_index).take(limit).collect();
 
     (paginated, start_index)
 }

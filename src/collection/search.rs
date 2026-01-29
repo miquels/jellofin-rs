@@ -161,7 +161,7 @@ impl SearchIndex {
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
-                    
+
                 results.push(SearchResult {
                     id: id.to_string(),
                     collection_id: collection_id.to_string(),
@@ -249,7 +249,7 @@ impl SearchIndex {
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
-                    
+
                 results.push(SearchResult {
                     id: id.to_string(),
                     collection_id: collection_id.to_string(),

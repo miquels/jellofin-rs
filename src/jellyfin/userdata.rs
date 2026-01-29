@@ -38,7 +38,7 @@ pub async fn get_resume_items(
             .server_id
             .as_deref()
             .unwrap_or_default();
-            
+
         // Efficiently finding items by ID using the global lookup map
         for data in &db_user_data {
             if let Some((collection_id, found_item)) = state.collections.get_item(&data.itemid) {
@@ -48,7 +48,10 @@ pub async fn get_resume_items(
                             let mut dto = convert_movie_to_dto(&movie, &collection.id, server_id);
                             dto.user_data = Some(UserData {
                                 playback_position_ticks: data.position.unwrap_or(0),
-                                played_percentage: data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
+                                played_percentage: data
+                                    .playedpercentage
+                                    .map(|p| p as f64)
+                                    .unwrap_or(0.0),
                                 play_count: data.playcount.unwrap_or(0),
                                 is_favorite: data.favorite.unwrap_or(false),
                                 last_played_date: data.timestamp.map(|t| t.to_rfc3339()),
@@ -57,11 +60,15 @@ pub async fn get_resume_items(
                                 unplayed_item_count: None,
                             });
                             resume_items.push(dto);
-                        },
+                        }
                         FoundItem::Episode(episode) => {
                             // Need to find parent season and show for full DTO
-                            if let Some(ItemRef::Season(season)) = collection.get_item(&episode.season_id) {
-                                if let Some(ItemRef::Show(show)) = collection.get_item(&episode.show_id) {
+                            if let Some(ItemRef::Season(season)) =
+                                collection.get_item(&episode.season_id)
+                            {
+                                if let Some(ItemRef::Show(show)) =
+                                    collection.get_item(&episode.show_id)
+                                {
                                     let mut dto = convert_episode_to_dto(
                                         &episode,
                                         &season.id,
@@ -73,7 +80,10 @@ pub async fn get_resume_items(
                                     );
                                     dto.user_data = Some(UserData {
                                         playback_position_ticks: data.position.unwrap_or(0),
-                                        played_percentage: data.playedpercentage.map(|p| p as f64).unwrap_or(0.0),
+                                        played_percentage: data
+                                            .playedpercentage
+                                            .map(|p| p as f64)
+                                            .unwrap_or(0.0),
                                         play_count: data.playcount.unwrap_or(0),
                                         is_favorite: data.favorite.unwrap_or(false),
                                         last_played_date: data.timestamp.map(|t| t.to_rfc3339()),
@@ -84,7 +94,7 @@ pub async fn get_resume_items(
                                     resume_items.push(dto);
                                 }
                             }
-                        },
+                        }
                         // We generally don't resume Shows or Seasons/Collections, but if needed they'd go here
                         _ => {}
                     }
