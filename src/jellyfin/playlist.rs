@@ -7,7 +7,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use super::auth::get_user_id;
-use super::item::{convert_episode_to_dto, convert_movie_to_dto};
+use super::jfitem::{convert_episode_to_dto, convert_movie_to_dto};
 use super::types::*;
 use crate::db::{Playlist as DbPlaylist, PlaylistRepo};
 use crate::server::AppState;

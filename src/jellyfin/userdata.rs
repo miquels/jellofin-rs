@@ -5,7 +5,7 @@ use axum::{
 };
 
 use super::auth::get_user_id;
-use super::item::{convert_episode_to_dto, convert_movie_to_dto};
+use super::jfitem::{convert_episode_to_dto, convert_movie_to_dto};
 use super::types::*;
 use crate::collection::collection::ItemRef;
 use crate::collection::repo::FoundItem;

@@ -1,4 +1,6 @@
 use arc_swap::ArcSwap;
+use crate::collection::item::{ImageInfo, Item, ItemType};
+use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tracing::{error, info};
@@ -183,14 +185,6 @@ impl CollectionRepo {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum FoundItem {
-    Movie(crate::collection::Movie),
-    Show(crate::collection::Show),
-    Season(crate::collection::Season),
-    Episode(crate::collection::Episode),
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum CollectionRepoError {
     #[error("Invalid collection type: {0}")]
@@ -199,4 +193,122 @@ pub enum CollectionRepoError {
     Scan(#[from] ScanError),
     #[error("Search error: {0}")]
     Search(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum FoundItem {
+    Movie(crate::collection::Movie),
+    Show(crate::collection::Show),
+    Season(crate::collection::Season),
+    Episode(crate::collection::Episode),
+}
+
+impl Item for FoundItem {
+    fn id(&self) -> &str {
+        match self {
+            FoundItem::Movie(m) => m.id(),
+            FoundItem::Show(s) => s.id(),
+            FoundItem::Season(s) => s.id(),
+            FoundItem::Episode(e) => e.id(),
+        }
+    }
+
+    fn name(&self) -> &str {
+        match self {
+            FoundItem::Movie(m) => m.name(),
+            FoundItem::Show(s) => s.name(),
+            FoundItem::Season(s) => s.name(),
+            FoundItem::Episode(e) => e.name(),
+        }
+    }
+
+    fn collection_id(&self) -> &str {
+        match self {
+            FoundItem::Movie(m) => m.collection_id(),
+            FoundItem::Show(s) => s.collection_id(),
+            FoundItem::Season(s) => s.collection_id(),
+            FoundItem::Episode(e) => e.collection_id(),
+        }
+    }
+
+    fn item_type(&self) -> ItemType {
+        match self {
+            FoundItem::Movie(m) => m.item_type(),
+            FoundItem::Show(s) => s.item_type(),
+            FoundItem::Season(s) => s.item_type(),
+            FoundItem::Episode(e) => e.item_type(),
+        }
+    }
+
+    fn parent_id(&self) -> Option<&str> {
+        match self {
+            FoundItem::Movie(m) => m.parent_id(),
+            FoundItem::Show(s) => s.parent_id(),
+            FoundItem::Season(s) => s.parent_id(),
+            FoundItem::Episode(e) => e.parent_id(),
+        }
+    }
+
+    fn sort_name(&self) -> &str {
+        match self {
+            FoundItem::Movie(m) => m.sort_name(),
+            FoundItem::Show(s) => s.sort_name(),
+            FoundItem::Season(s) => s.sort_name(),
+            FoundItem::Episode(e) => e.sort_name(),
+        }
+    }
+
+    fn premiere_date(&self) -> Option<DateTime<Utc>> {
+        match self {
+            FoundItem::Movie(m) => m.premiere_date(),
+            FoundItem::Show(s) => s.premiere_date(),
+            FoundItem::Season(s) => s.premiere_date(),
+            FoundItem::Episode(e) => e.premiere_date(),
+        }
+    }
+
+    fn production_year(&self) -> Option<i32> {
+        match self {
+            FoundItem::Movie(m) => m.production_year(),
+            FoundItem::Show(s) => s.production_year(),
+            FoundItem::Season(s) => s.production_year(),
+            FoundItem::Episode(e) => e.production_year(),
+        }
+    }
+
+    fn community_rating(&self) -> Option<f64> {
+        match self {
+            FoundItem::Movie(m) => m.community_rating(),
+            FoundItem::Show(s) => s.community_rating(),
+            FoundItem::Season(s) => s.community_rating(),
+            FoundItem::Episode(e) => e.community_rating(),
+        }
+    }
+
+    fn overview(&self) -> Option<&str> {
+        match self {
+            FoundItem::Movie(m) => m.overview(),
+            FoundItem::Show(s) => s.overview(),
+            FoundItem::Season(s) => s.overview(),
+            FoundItem::Episode(e) => e.overview(),
+        }
+    }
+
+    fn genres(&self) -> &[String] {
+        match self {
+            FoundItem::Movie(m) => m.genres(),
+            FoundItem::Show(s) => s.genres(),
+            FoundItem::Season(s) => s.genres(),
+            FoundItem::Episode(e) => e.genres(),
+        }
+    }
+
+    fn images(&self) -> &ImageInfo {
+        match self {
+            FoundItem::Movie(m) => m.images(),
+            FoundItem::Show(s) => s.images(),
+            FoundItem::Season(s) => s.images(),
+            FoundItem::Episode(e) => e.images(),
+        }
+    }
 }

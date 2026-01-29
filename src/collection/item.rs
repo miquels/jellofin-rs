@@ -240,6 +240,45 @@ impl Item for Show {
     }
 }
 
+impl Item for Season {
+    fn id(&self) -> &str {
+        &self.id
+    }
+    fn name(&self) -> &str {
+        &self.name
+    }
+    fn collection_id(&self) -> &str {
+        &self.collection_id
+    }
+    fn item_type(&self) -> ItemType {
+        ItemType::Season
+    }
+    fn parent_id(&self) -> Option<&str> {
+        Some(&self.show_id)
+    }
+    fn sort_name(&self) -> &str {
+        &self.name
+    }
+    fn premiere_date(&self) -> Option<DateTime<Utc>> {
+        self.premiere_date
+    }
+    fn production_year(&self) -> Option<i32> {
+        None
+    }
+    fn community_rating(&self) -> Option<f64> {
+        None
+    }
+    fn overview(&self) -> Option<&str> {
+        self.overview.as_deref()
+    }
+    fn genres(&self) -> &[String] {
+        &[]
+    }
+    fn images(&self) -> &ImageInfo {
+        &self.images
+    }
+}
+
 impl Item for Episode {
     fn id(&self) -> &str {
         &self.id

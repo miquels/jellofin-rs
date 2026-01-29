@@ -7,8 +7,8 @@ use axum::{
 use super::auth::get_user_id;
 use super::types::*;
 use crate::db::UserDataRepo;
-use crate::jellyfin::item::convert_episode_to_dto;
-use crate::jellyfin::item::convert_season_to_dto;
+use crate::jellyfin::jfitem::convert_episode_to_dto;
+use crate::jellyfin::jfitem::convert_season_to_dto;
 use crate::server::AppState;
 use crate::util::QueryParams;
 

@@ -5,6 +5,7 @@ pub mod filter;
 pub mod genre;
 pub mod item;
 pub mod jellyfin;
+pub mod jfitem;
 pub mod library;
 pub mod localization;
 pub mod movie;
